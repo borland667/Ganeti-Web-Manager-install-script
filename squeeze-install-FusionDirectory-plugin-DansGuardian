@@ -1,0 +1,48 @@
+#!/bin/sh
+# A script to install the Fusion Directory DansGuardian plugin and required
+# softare.
+# FIXME: This script is incomplete, probably incorrect and not working.
+
+# We must run this script as root...
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# ...and check if we've installed Fusion Directory via the
+#    squeeze-install-FusionDirectory script
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory script before this one.  Fusion"
+  echo "Directory must be installed and configured before we can continue..."
+  exit 1
+fi
+
+# DansGuardian requires a valid network IP...
+my_fqdn=`hostname -f`
+my_host_ip=`grep $my_fqdn /etc/hosts | awk '{ print $1 }'`
+echo ""
+echo "Your hostname is "$my_fqdn" and your IP is "$my_host_ip
+if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
+	echo ""
+	echo "DansGuardian requires your hostname to resolve to a valid network IP."
+	echo "You must edit your /etc/hosts file and make sure your hostname"
+	echo "(printed above) resolves to an IP other than 127.x.x.x"
+	echo "Your /etc/networking/interfaces will also need to match. eg. :"
+	echo "iface eth0 inet static"
+	echo "    address 192.168.1.120"
+	echo "    netmask 255.255.255.0"
+	echo "    gateway 192.168.1.1" 
+	exit 1
+fi
+
+# Install required software
+# FIXME: Squid v2.7 will be installed...  if we want v.3.0 we need to install
+#        squid3. At the time of writing only the first version of v3.0 is in
+#        Squeeze even though many bugfixes have been submitted since this
+#        version.  Perhaps later we can install a 3.0 version that's more
+#        stable and up-to-date.
+# FIXME: I've installed libnet-ldap-perl, libio-socket-ssl-perl and sudo.
+#        They were required for the Squid plugin script, but may not
+#        be required here.  Test and remove if not required.
+aptitude -y --allow-untrusted install squid libnet-ldap-perl libio-socket-ssl-perl libunicode-string-perl sudo
+

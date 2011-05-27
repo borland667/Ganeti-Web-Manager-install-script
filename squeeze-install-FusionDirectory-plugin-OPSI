@@ -1,0 +1,443 @@
+#!/bin/sh
+# A script to install the Fusion Directory OPSI plugin and required softare.
+# FIXME: This script is not quite working.
+# FIXME: Prerequisite scripts : Samba+PDC, Server Infrastructure
+#                               DNS, DHCP, FAI.
+
+# We must run this script as root
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# FIXME: prerequisite scripts (we should test these have run :
+# squeeze-install-FusionDirectory
+if [ ! -f /etc/gosa/gosa.conf ]; then
+  echo "Run the squeeze-install-GOsa-2.6 script before this one.  GOsa must be"
+  echo "installed and configured before we can continue..."
+  exit 1
+fi
+# squeeze-install-FusionDirectory-Server-Infrastructure
+if [ ! -f /etc/gosa-si/server.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory-Server-Infrastructure script before"
+  echo "this one.  GOsa-SI must be installed and configured before we can continue."
+  exit 1
+fi
+# squeeze-install-FusionDirectory-plugin-DHCP
+if [ ! -f /etc/dhcp/dhcpd.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory-plugin-DHCP script before this"
+  echo "one.  DHCPd must be installed and configured before we can continue..."
+  exit 1
+fi
+# squeeze-install-FusionDirectory-plugin-DNS
+if [ ! -f /etc/default/ldap2zone ]; then
+  echo "Run the squeeze-install-FusionDirectory-plugin-DNS script before this one.  Bind9"
+  echo "must be installed and configured before we can continue..."
+  exit 1
+fi
+
+## FIXME: Benoit tells me FAI is NOT required...  test, then remove this.
+## squeeze-install-FusionDirectory-plugin-FAI
+#if [ ! -f /etc/fai/make-fai-nfsroot.conf ]; then
+#  echo "Run the squeeze-install-FusionDirectory-plugin-FAI script before this one.  FAI"
+#  echo "must be installed and configured before we can continue..."
+#  exit 1
+#fi
+# squeeze-install-FusionDirectory-Samba+goPDC
+
+if [ ! -f /etc/samba/smb.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory-Samba+goPDC script before this one. Samba"
+  echo "must be installed and configured before we can continue..."
+  exit 1
+fi
+
+# OPSI requires a valid network IP...
+my_fqdn=`hostname -f`
+my_host_ip=`grep $my_fqdn /etc/hosts | awk '{ print $1 }'`
+echo ""
+echo "Your hostname is "$my_fqdn" and your IP is "$my_host_ip
+if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
+	echo ""
+	echo "OPSI requires your hostname to resolve to a valid network IP."
+	echo "You must edit your /etc/hosts file and make sure your hostname"
+	echo "(printed above) resolves to an IP other than 127.x.x.x"
+	echo "Your /etc/networking/interfaces will also need to match. eg. :"
+	echo "iface eth0 inet static"
+	echo "    address 192.168.1.120"
+	echo "    netmask 255.255.255.0"
+	echo "    gateway 192.168.1.1" 
+	exit 1
+fi
+
+# FIXME: This is probably no longer required with Debian Squeeze and openjdk-6-jre
+## ...and non-free repos enabled.
+#grep -q "non-free" /etc/apt/sources.list
+#if [ "$?" != 0 ]; then
+#	echo ""
+#        echo "ERROR: You don't have non-free repositories enabled in"
+#	echo "/etc/apt/sources.list.  You must update this before you can"
+#	echo "continue as OPSI requires Sun's Java JRE.  Exiting..."
+#	exit 1
+#fi
+
+grep -q "http://download.uib.de/debian" /etc/apt/sources.list
+if [ "$?" != 0 ]; then
+        echo "deb http://download.uib.de/debian lenny opsi3.4" >> /etc/apt/sources.list
+fi
+
+apt-get update
+apt-get install -y wget lsof host python-mechanize p7zip-full cabextract atftpd
+apt-get install -y smbclient smbfs
+apt-get install -y openjdk-6-jre
+
+# Make sure the Sun OpenJDK JRE is used.  Use --config instead of --set to
+# make this change interactively if required.
+update-alternatives --set java /usr/lib/jvm/java-6-openjdk/jre/bin/java
+
+################# Probably not required #########################################
+# FIXME: Remove this after we've established this is not needed.
+#aptitude -y --allow-untrusted libio-socket-ssl-perl 
+#
+#echo "Checking if prerequisite packages are already present :"
+#if apt-get -qq install libgosa-perl; then
+#  echo "Installed libgosa-perl from repositories..."
+#else
+#  cd /usr/src
+#  svn co https://oss.gonicus.de/repositories/goto/trunk/gosa-perl gosa-perl
+#  cd /usr/src/gosa-perl
+#  dpkg-buildpackage -b
+#  cd /usr/src
+#  dpkg -i libgosa-perl_*.deb
+#fi
+#
+#if apt-get -qq install goto-common; then
+#  echo "Installed goto-common from repositories..."
+#else
+#  cd /usr/src
+#  svn co https://oss.gonicus.de/repositories/goto/trunk/goto-common goto-common
+#  cd /usr/src/goto-common
+#  dpkg-buildpackage -b
+#  cd /usr/src
+#  dpkg -i goto-common_*.deb
+#fi
+###################################################################################
+
+
+
+# This Gosa SI package needs to be installed... 
+if apt-get -y --allow-unauthenticated install gosa-si-server-opsi; then
+  echo "Installed GOsa Server Infrastructure OPSI module from repository..."
+else
+  echo "Can't find GOsa Server Infrastructure OPSI module in the repository..."
+  # At the moment of writing amd64 gosa-si debs aren't available
+  echo "Downloading, compiling and installing gosa-si-server-opsi from source..."
+  cd /usr/src
+  svn co https://oss.gonicus.de/repositories/gosa/trunk/gosa-si gosa-si
+  cd /usr/src/gosa-si
+  dpkg-buildpackage -b
+  cd /usr/src
+  dpkg -i gosa-si-server-opsi_2.6*.deb
+fi
+
+# OPSI administrators must belong to the group "opsiadmin" and
+# users which can make opsi packages must belong to "pcpatch"
+# By default the root user is considered an OPSI admin without
+# needing to be a member of both these groups, and user pcpatch
+# has its primary group as pcpatch so doesn't need to be explicitly
+# added.  If we want to add an opsi admin user uncomment the
+# following :
+echo ""
+echo "Creating the opsiadmin account..."
+OPSIADMIN_PW=`openssl rand -base64 12`
+echo "Temporary : You'll have to create the opsiadmin account in FusionDirectory"
+echo "manually."
+echo "The password you need to use is : "$OPSIADMIN_PW
+echo "You will also need to enable Unix/POSIX and Samba extensions on the a/c."
+echo "This is because Samba is LDAP-enabled, and as of v3.0.23 doesn't support"
+echo "multiple password backends, so we can't support non-ldap Samba accounts."
+echo "One day I will automate this.  Hit any key to continue..."
+read dummyvar 
+#<bilbo-the-hobbit> you have in gosa the tool mkntpasswd
+# I can't find this tool.  From the mailing list it seems to be a GOsa 2.5 tool
+# Perhaps I can use the goPDC tools?  Will this also change the POSIX password?
+# /usr/share/gopdc/gopdc -adduser <username>
+#<bilbo-the-hobbit> and mkpasswd
+# <AncientGeek> Hi, another way to add samba user is  "net rpc user add"
+#
+#### In the scenario where we want a local opsiadmin user :
+#if useradd -m -g opsiadmin -s /bin/bash opsiadmin; then
+#	echo "opsiadmin account successfully created..."
+#else
+#	echo "opsiadmin account probably already exists...  skipping."
+#fi
+#echo "opsiadmin:$OPSIADMIN_PW" | chpasswd
+#smbpasswd -a -U opsiadmin -w $OPSIADMIN_PW
+#####
+#
+# FIXME: users : opsiadmin, pcpatch, opsiconfd . groups : pcpatch
+# /etc/opsi/passwd (pcpatch password here)
+# /etc/gosa-si/server.conf (opsiadmin password here)
+# We need a samba account for opsiadmin.  I guess this must exist in LDAP?
+# Could we put this in the cn=internal place similar to Kolab accounts?
+
+# Unfortunately the Samba docs say it's no longer possible for Samba to support
+# multiple password backends, so I can't simply have a local password.
+
+# When starting gosa-si I get WARNING: opsi-module is installed
+# but not enabled in config file, please set under section '[OPSI]':
+# 'enabled = true'.  I changed /etc/gosa-si/server.conf and this seemed
+# to fix this error.  
+cat >> /etc/gosa-si/server.conf <<-EOF
+
+	[OPSI]
+	enabled = true
+	admin = opsiadmin
+	password = $OPSIADMIN_PW
+EOF
+# Check cfg_defaults in the /usr/sbin/gosa-si-server script to get an idea of
+# other configuration options available in server.conf. This is not documented.
+
+
+# We COULD enable ArpHandler in /etc/gosa-si/server.conf .  The ArpHandler captures
+# network traffic and automatically imports network devices into LDAP/GOsa.
+# FIXME: Perhaps this should be enabled by default.
+# FIXME: How does this do what it does?
+#printf "%s\n" '/\[ArpHandler\]/' '/enabled = false/s/false/true' w | ex -s /etc/gosa-si/server.conf
+
+apt-get -qq install libproc-daemon-perl syslinux
+apt-get remove tftpd
+update-inetd --remove tftpd
+
+if apt-get -y --allow-unauthenticated install fts fts-opsi; then
+  echo "Installed fts from repositories..."
+else
+  # tftpd-hpa is installed by default with FAI, but we are using Fusion Directory,
+  # and we therefore we must remove this package and use fts+atftpd instead.
+  apt-get -qq purge tftpd-hpa
+  cd /usr/src
+  svn co https://oss.gonicus.de/repositories/goto/trunk/fts fts
+  cd /usr/src/fts
+  dpkg-buildpackage -b
+  cd /usr/src
+  dpkg -i fts_*.deb
+  dpkg -i fts-opsi_*.deb
+fi
+
+# Edit [OPSI] section and [LDAP] sections in /etc/fts/fts.conf
+# to be correct for our local scenario.
+sed -i 's@#\[OPSI\]@\[OPSI\]@' /etc/fts/fts.conf
+sed -i 's@#admin = cajus@admin = opsiadmin@' /etc/fts/fts.conf
+sed -i 's@#password = tester@password = '$OPSIADMIN_PW'@' /etc/fts/fts.conf
+sed -i 's@#server = dyn-muc-02.intranet.gonicus.de@server = '$my_fqdn'@' /etc/fts/fts.conf
+sed -i 's@#lang = de@lang = en@' /etc/fts/fts.conf
+
+# We get our admin dn and password from fusiondirectory.conf as these are required in the
+# [LDAP] section - fts must use them to connect to our LDAP directory.
+LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
+LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
+echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+sed -i 's@#auth_dn=@auth_dn='$LDAP_ADMIN_DN'@' /etc/fts/fts.conf
+sed -i 's@#auth_pwd=@auth_pwd='$LDAP_ADMIN_PW'@' /etc/fts/fts.conf
+
+## These packages are replaced by fts and opsi-depot-support in Fusion Directory, and
+## I've made a note here in case anyone was wondering about it :
+#apt-get install opsi-atftpd opsi-depotserver
+
+if apt-get --allow-unauthenticated -y install opsi-depot-support; then
+  echo "Installed opsi-depot-support from repositories..."
+else
+  aptitude --allow-untrusted -y install apg opsiconfd opsi-linux-bootimage opsi-utils
+  cd /usr/src
+  svn co https://oss.gonicus.de/repositories/goto/trunk/opsi-depot-support opsi-depot-support
+  cd /usr/src/opsi-depot-support
+  dpkg-buildpackage -b
+  cd /usr/src
+  dpkg -i opsi-depot-support_*.deb
+fi
+
+aptitude install -y --allow-untrusted opsi-configed fusiondirectory-plugin-opsi
+
+## FIXME: Is this information obsolete?
+# During the opsiserver installation you have to allow the patching of the
+# files 'dhcpd.conf' and 'smb.conf'. Answer the question with 'yes'. Also you
+# will be asked for a password for the user 'pcpatch'. Set a new password.
+
+# FIXME: Does the user already get asked for the pcpatch pass.  If so delete :
+# The following command changes the "pcpatch" user password.  This account
+# is used to control PCs...
+echo ""
+echo "The pcpatch user is used for various management tasks in OPSI."
+echo "Please enter a password for this account."
+opsi-admin -d task setPcpatchPassword
+
+# We must install the products essential to OPSI operation :
+cd /home/opsiproducts
+echo ""
+echo "Downloading OPSI products.  Please wait..."
+wget -r -l1 -nd -nc -A '*.opsi' http://download.uib.de/opsi3.4/produkte/essential
+# More products can be downloaded from http://download.uib.de similarly
+
+#FIXME: This was the old way of doing things...  then I follow with the new way.
+#No need for chown???
+#chown opsiconfd *.opsi
+#for paket in *.opsi; do echo $paket; opsi-package-manager -i -f -q -k $paket; done
+opsi-package-manager -i *.opsi
+
+## Samba configuration
+cat >> /etc/samba/smb.conf <<-EOF
+	[opt_pcbin]
+	 available = yes
+	 comment = opsi depot share
+	 path = /opt/pcbin
+	 oplocks = no
+	 level2 oplocks = no
+	 writeable = yes
+	 invalid users = root
+	[opsi_config]
+	 available = yes
+	 comment = opsi config share
+	 path = /var/lib/opsi/config
+	 writeable = yes
+	 invalid users = root
+	[opsi_workbench]
+	 available = yes
+	 comment = opsi workbench share
+	 path = /home/opsiproducts
+	 writeable = yes
+	 invalid users = root
+EOF
+
+# FIXME: We should disable the license server here, because otherwise it gives
+#        an error each time an OPSI client is visited in Fusion Directory.
+
+# Operating system files need to be installed in /opt/pcbin/install/win2k and
+# /opt/pcbin/install/winxppro (ie. the i386 directory).  They need the following
+# permissions :
+#chown -R opsiconfd.pcpatch i386/
+#chmod -R ug+rw i386/
+
+# Windows Vista and 7 is more complicated.  An Automated Installation Kit (AIK)
+# image will also be required.  You will need to build this image under the
+# 32 or 64 bit version of the OS you want to install.
+#
+# Find the required software (Automatic Install Kit).
+#
+# For Vista :
+# 
+# http://www.microsoft.com/downloads/details.aspx?displaylang=en&FamilyID=94bb6e34-d890-4932-81a5-5b50c657de08
+#
+# For Win7 track down the Win7 version instead.  This is because the AIK will try to make use of any extra
+# network drivers you make available to opsi when it boots, and this will be problematic if it's not based
+# on a compatible OS.
+#
+# 1) Right-click the WinPE Command Prompt icon (in the MS Win AIK menu) and click
+#    "Run as Administrator".  Then run the following command to create a winpe image
+#    for the amd64 architecture (substitute x86 or ia86 when using these other
+#    architectures) :
+#    copype.cmd amd64 c:\winpe_amd64
+#
+# 2) Allow read and write access to this boot.wim file.  (Documentation says it's required for Vista?
+#    Doesn't seem to be required for Win7).
+#
+# 3) To mount this image file execute the following command from the WinPE command prompt :
+#
+#    (if running win7 AIK first execute this : copy c:\winpe_x86\winpe.wim c:\winpe_x86\ISO\sources\boot.wim )
+#
+#    imagex.exe /mountrw C:\winpe_amd64\ISO\sources\boot.wim 1 c:\winpe_amd64\mount
+#
+# 4) Now you can access the image file from the c:\winpe_amd64\mount dir.  Edit this file :
+#
+#    C:\WinPE_amd64\mount\Windows\System32\startnet.cmd
+#    
+#    Delete the "wpeinit" line and instead add "c:\opsi\startnet.cmd".
+#
+# 4a) If you need to install additional drivers :
+#    peimg /inf=<path to inf file> c:\winpe_amd64\mount\Windows
+#    (...repeat for all required drivers).
+#
+#    ...although this is probably not required.  The documentation implies this happens automatically
+#    if the correct drivers are insta
+#
+# 5) Unmount the image file :
+#
+#    imagex.exe /unmount /commit C:\winpe_amd64\mount
+#
+#    ...and copy the contents of c:/winpe_amd64/ISO to the winpe directory
+#    in the opsi directory for your operating system (eg. Win7 or WinVista in
+#    /opt/pcbin/install on your opsi server).
+#    
+# 6) ONLY for Vista 64bit : Type the mount command above subsituting "2"
+#    for "1" (which accesses the second volume in the wim ie. windows image file) :
+#
+#    imagex.exe /mountrw C:\winpe_amd64\ISO\sources\boot.wim 2 c:\winpe_amd64\mount
+#
+#    The edit to startnet.cmd need to happen as above.
+#
+#    It's important to also delete setup.exe from the root and /sources directory of
+#    boot.wim.
+#
+#    (I haven't tested step #6 so I have no idea if this is actually required yet).
+#
+# 8) Copy c:\winpe_amd64\ISO directory to the /opt/pcbin/install/win7/ and rename to winpe (delete existing winpe dir)
+# 8) Copy entire CD contents to /opt/pcbin/install/win7/installfiles and
+#    change permissions ie.
+#    chown -R opsiconfd.pcpatch /opt/pcbin/install/win7/installfiles
+
+# FIXME: I THINK the below files in /tftpboot are accessed automatically
+#        by fts, and therefore aren't required to be linked into the
+#        /srv/tftp directory heirarchy.  Is this how it works?
+### perms : 664 opsiconfd:pcpatch
+# chain.c32
+# vmlinuz-2.6.31
+# install (link to above file)
+# miniroot-20090911.bz2
+# miniroot (link to above file)
+# opsi.png
+# pxelinux.0
+# vesamenu.c32
+# memtest86 (perms 644)
+# pxelinux.cfg/default.nomenu
+# pxelinux.cfg/default (link to above file)
+# pxelinux.cfg/install
+# pxelinux.cfg/memtest86
+
+# FIXME: I believe this is no longer required.  Is it?  If it is, correct permissions?
+#cp /usr/lib/syslinux/pxelinux.0 /srv/tftp/pxelinux.0
+
+# FIXME: The following is temporary...  the file 90_gosa.conf wasn't included in
+#        /usr/share/doc/gosa-si-server-opsi/contrib/ , so we must download
+#        it from scratch to /etc/opsi/backendManger.d/ rather than simply
+#        copying it.
+apt-get install wget
+cd /etc/opsi/backendManager.d
+wget https://oss.gonicus.de/repositories/gosa/trunk/gosa-si/contrib/90_gosa.conf
+
+# ...and we need the correct ownership and permissions...
+chown opsiconfd.pcpatch /etc/opsi/backendManager.d/90_gosa.conf
+chmod 660 /etc/opsi/backendManager.d/90_gosa.conf
+
+# FIXME: Apt triggers aren't working with the Fusion Directory packages yet, so
+#        we need to update the web interface manually.  Once this
+#        works this step can be removed.
+update-fusion
+
+/etc/init.d/samba restart
+/etc/init.d/fts restart
+/etc/init.d/atftpd restart
+/etc/init.d/apache2 restart
+/etc/init.d/gosa-si restart
+/etc/init.d/opsiconfd restart
+
+echo "By default only the local root user can administrate OPSI.  If you want"
+echo "another user as OPSI admin they will need to be a member of two groups :"
+echo "pcpatch and opsiadmin."
+echo ""
+echo "Also, you must specify pxelinux.0 in the DHCP section of Fusion Directory"
+echo "so that clients will begin the TFTP PXE boot process."
+echo ""
+echo "Last of all, you must install and configure your OS software and apps"
+echo "onto the server.  This is documented in the OPSI manual."
+# FIXME: Is the following required or is this all done through Fusion Directory now?
+echo "https://localhost:4447/"
+

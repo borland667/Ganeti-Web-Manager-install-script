@@ -1,0 +1,158 @@
+#!/bin/bash
+# Shell script to install GOsa-si (Server Infrastructure daemon)
+# FIXME: Appears to work but is VERY new.  Extreme caution!
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+echo "Downloading package lists...  This may take a while..."
+if apt-get -qq update; then
+        echo "Success"
+else
+        echo "Failure to download package information.  Exiting..."
+        exit 1
+fi
+
+# FIXME: prerequisite scripts (we should test these have run :
+# squeeze-install-GOsa-2.6
+if [ ! -f /etc/gosa/gosa.conf ]; then
+  echo "Run the squeeze-install-GOsa-2.6 script before this one.  GOsa must be"
+  echo "installed and configured before we can continue..."
+  exit 1
+fi
+
+# NOTE:: We install gosa-si-client as well as the server because both GOsa and
+# the infrastructure we're controlling are on the one box. 
+# FIXME: the gosa-si-client package optionally suggests goto-fai-progress and
+# gosa-si-client-krb5.  If and when should we use these?
+
+# At the time of writing the gosa-si binary packages (at least for amd64) aren't
+# available so we need to compile them after we've downloaded the prerequisites.
+# I have had some trouble in the past when these in-development packages have been
+# in an unworking state.  You can use subversions -r command to check out the
+# files from an earlier point in time (when hopefully they worked) eg.
+# svn co -r '{2009-09-07}' https://oss.gonicus.de/repositories/goto/trunk goto
+# (The date used above worked at one time, but probably is too far out of date
+# now).
+apt-get -f -y --allow-unauthenticated install subversion libnet-pcap-perl libpcap0.8 dpatch libconfig-inifiles-perl libcrypt-rijndael-perl libxml-simple-perl libdata-dumper-simple-perl libmime-perl libmime-tools-perl libdbd-sqlite3-perl libnet-ldap-perl libnetaddr-ip-perl libpoe-perl libnet-dns-perl libconvert-asn1-perl libconvert-asn1-perl libnet-ip-perl libnet-arp-perl libdatetime-perl hwinfo libcrypt-ssleay-perl debhelper libpoe-component-pcap-perl libnetpacket-perl libnet-mac-vendor-perl libio-socket-ssl-perl libnet-ssleay-perl libnet-libidn-perl
+
+cd /usr/src
+mkdir /usr/src/goto
+echo "Check if the following packages are present, or need to be compiled"
+echo "from scratch :"
+if apt-get -qq --allow-unauthenticated install libnet-mac-vendor-perl; then
+  echo "Installed libnet-mac-vendor-perl from repositories..."
+else
+  svn co https://oss.gonicus.de/repositories/goto/trunk/libnet-mac-vendor goto/libnet-mac-vendor
+  cd /usr/src/goto/libnet-mac-vendor
+  dpkg-buildpackage -b
+fi
+if apt-get -qq --allow-unauthenticated install libpoe-component-pcap-perl; then
+  echo "Installed libpoe-component-pcap-perl from repositories..."
+else
+  cd /usr/src
+  svn co https://oss.gonicus.de/repositories/goto/trunk/libpoe-component-pcap goto/libpoe-component-pcap
+  cd /usr/src/goto/libpoe-component-pcap
+  dpkg-buildpackage -b
+fi
+if apt-get -qq --allow-unauthenticated install libjson-rpc-perl; then
+  echo "Installed libjson-rpc-perl from the repositories..."
+else
+  cd /usr/src
+  svn co https://oss.gonicus.de/repositories/goto/trunk/libjson-rpc-perl goto/libjson-rpc-perl
+  cd /usr/src/goto/libjson-rpc-perl
+  dpkg-buildpackage -b
+fi
+if apt-get -qq --allow-unauthenticated install libxml-quote-perl; then
+  echo "Installed libxml-quote-perl from the repositories..."
+else
+  cd /usr/src
+  svn co https://oss.gonicus.de/repositories/goto/trunk/libxml-quote-perl goto/libxml-quote-perl
+  cd /usr/src/goto/libxml-quote-perl
+  dpkg-buildpackage -b
+fi
+# FIXME: For some reason this package didn't install on one of my runs.  Does this always happen?
+if apt-get -qq --allow-unauthenticated install libnetpacket-perl; then
+  echo "Installed libnet-packet from repositories..."
+else
+  cd /usr/src
+  svn co https://oss.gonicus.de/repositories/goto/trunk/libnet-packet goto/libnet-packet
+  cd /usr/src/goto/libnet-packet
+  dpkg-buildpackage -b
+fi
+
+echo "PLEASE IGNORE ANY ERRORS : installing compiled debs if they exist..."
+cd /usr/src/goto
+dpkg -i *.deb
+
+## There are issues with the current release version of gosa-si, so at the
+## moment we simply get it from trunk.
+if apt-get -y --allow-unauthenticated install gosa-si-server\
+  gosa-si-common gosa-si-client; then
+  echo "Installed GOsa Server Infrastructure modules from repositories..."
+else
+  echo "Can't find GOsa Server Infrastructure modules in the repositories..."
+  echo "Perhaps we are running on a non-i386 architecture?"
+  # At the moment of writing amd64 gosa-si debs aren't available
+  echo "Download, compile and install gosa-si :"
+  cd /usr/src
+  svn co https://oss.gonicus.de/repositories/gosa/trunk/gosa-si gosa-si
+  cd /usr/src/gosa-si
+  dpkg-buildpackage -b
+  cd /usr/src
+  # FIXME: These prerequisites are new...  do they work?
+  # These files are required to install gosa-si
+  apt-get install libfile-pid-perl libclass-accessor-perl libsub-name-perl
+  dpkg -i gosa-si-server_2.6* gosa-si-common_2.6* gosa-si-client_2.6*
+fi
+
+# gosa-si (si = server infrastructure) needs to be configured.  We do this in three steps :
+
+# 1) Pull LDAP config data from our gosa and slapd configuration. (admin dn, base dn and
+#    admin password.
+
+LDAP_ADMIN_DN=`grep 'adminDn="' /etc/gosa/gosa.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+echo "LDAP admin dn extracted from /etc/gosa/gosa.conf"
+LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '/ */{ print $2 }'`
+echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
+LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/gosa/gosa.conf | awk -F'"' '{print $2 }'`
+echo "LDAP admin password extracted from /etc/gosa/gosa.conf"
+FQDN=`hostname --fqdn`
+HOST_IP=`hostname --ip`
+
+# 2) Configure gosa-si with the LDAP connection details retrieved in the
+#    previous step.
+
+sed -i 's@ldap-uri = ldap://127.0.0.1@ldap-uri = ldaps://'$FQDN'@' /etc/gosa-si/server.conf
+sed -i 's@ldap-base = dc=your,dc=domain@ldap-base = '$LDAP_BASE_DN'@' /etc/gosa-si/server.conf
+sed -i 's@ldap-admin-dn = cn=ldapadmin,dc=your,dc=domain@ldap-admin-dn = '$LDAP_ADMIN_DN'@' /etc/gosa-si/server.conf
+sed -i 's@ldap-admin-password = tester@ldap-admin-password = '$LDAP_ADMIN_PW'@' /etc/gosa-si/server.conf
+
+# 3) Uncomment and configure gosa-si connection URI and timeout settings in
+#    gosa.conf.  FIXME: Correct the password to be something intelligent
+#    This password needs to match [GOsaPackages] in /etc/gosa-si/server.conf
+sed -i 's/disabled_gosaSupportURI="gosa-si-secret@server:20081"/gosaSupportURI="secret-gosa-password@'$FQDN':20081"/' /etc/gosa/gosa.conf
+sed -i 's@disabled_gosaSupportTimeout="15"@gosaSupportTimeout="15"@' /etc/gosa/gosa.conf
+
+## FIXME:Does any more configuration need to happen?????  Especially with keys????
+## (I'm not really clear on what gosa-si even does).  I believe a hostname can go
+## here instead.
+sed -i 's@^\[Server\]'\
+'@\[Server\]\
+ip = '$HOST_IP'@' /etc/gosa-si/client.conf
+
+# We should enable gosa-si-server
+sed -i 's@START_SERVER=0@START_SERVER=1@' /etc/default/gosa-si-server
+
+# We need to restart the gosa-si daemon.  We don't restart, but stop and start
+# separately.
+# FIXME: This is a workaround for a bug with gosa-si...  gosa-si-server doesn't reboot
+#        if it's initially stopped, and then is restarted.  Hopefully this is fixed
+#        after 2.6.6 (check).
+/etc/init.d/gosa-si-server stop
+/etc/init.d/gosa-si-server start
+/etc/init.d/gosa-si-client stop
+/etc/init.d/gosa-si-client start
+
+

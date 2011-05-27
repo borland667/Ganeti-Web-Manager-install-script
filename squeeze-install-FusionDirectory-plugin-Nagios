@@ -1,0 +1,222 @@
+#!/bin/sh
+# A script to install the Fusion Directory Nagios plugin and required softare.
+# FIXME: This script is incomplete, probably incorrect and not working.
+
+# We must run this script as root
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# FIXME: prerequisite scripts (we should test these have run :
+# squeeze-install-FusionDirectory
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory script before this one.  It must be"
+  echo "installed and configured before we can continue..."
+  exit 1
+fi
+
+## FIXME: I've commented out the following because it may be no longer true :
+## squeeze-install-FusionDirectory-Samba+goPDC - for some reason Samba server is pulled
+## in as a dependancy.  I don't think Samba SHOULD need to be installed.
+## FusionDirectory behaves strangely if I don't install the Samba plugins
+## etc...  so I do things this way for now.
+#if [ ! -f /etc/samba/smb.conf ]; then
+#  echo "Run the squeeze-install-FusionDirectory-Samba-goPDC script before this one."
+#  echo "Samba must be installed and configured before we can continue..."
+#  exit 1
+#fi
+
+# Nagios requires a valid network IP...
+my_fqdn=`hostname -f`
+my_host_ip=`grep $my_fqdn /etc/hosts | awk '{ print $1 }'`
+echo ""
+echo "Your hostname is "$my_fqdn" and your IP is "$my_host_ip
+if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
+	echo ""
+	echo "Nagios requires your hostname to resolve to a valid network IP."
+	echo "You must edit your /etc/hosts file and make sure your hostname"
+	echo "(printed above) resolves to an IP other than 127.x.x.x"
+	echo "Your /etc/networking/interfaces will also need to match. eg. :"
+	echo "iface eth0 inet static"
+	echo "    address 192.168.1.120"
+	echo "    netmask 255.255.255.0"
+	echo "    gateway 192.168.1.1" 
+	exit 1
+fi
+
+# libmime-lite-perl is required for the Nagios contrib perl script
+aptitude -y --allow-untrusted install fusiondirectory-plugin-nagios fusiondirectory-plugin-nagios-schema nagios3 libmime-lite-perl libnet-ldap-perl libio-socket-ssl-perl
+## Other nagios packages I need to investigate :
+# nagios-nrpe-plugin
+# nagios-nrpe-server
+# nagios-snmp-plugins
+# nagios-statd-client
+# nagios-statd-server
+# nagiosgrapher
+# ndoutils-nagios3-mysql - stores data in MySQL for later retreval and processing
+
+if [ -f /etc/ldap/schema/fusiondirectory/nagios.ldif ]; then
+	echo "Adding schemas to LDAP tree..."
+else
+	echo "Hopefully ldif versions of schemas will be packaged soon,"
+	echo "but until this happens you will need to create these by hand."
+	echo "You could use slaptest, or the schema2bcldif.sh script."
+	echo "Please create ldif versions of all schemas in"
+	echo "/etc/ldap/schema/fusiondirectory and hit <enter> to continue..."
+	read dummy
+fi
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/nagios.ldif
+
+# This perl script extracts Nagios configuration from LDAP and builds config files
+zcat /usr/share/doc/fusiondirectory-plugin-nagios/contrib/goNagios.pl.gz > /usr/local/sbin/goNagios.pl
+chmod 700 /usr/local/sbin/goNagios.pl
+
+# ...I change the names of the config files inside the script to match Debians
+# default Nagios config...
+sed -i "s@cgi.cfg@/etc/nagios3/cgi.cfg@" /usr/local/sbin/goNagios.pl
+sed -i "s@contacts.cfg@/etc/nagios3/conf.d/contacts_nagios2.cfg@" /usr/local/sbin/goNagios.pl
+sed -i "s@contactgroups.cfg@/etc/nagios3/conf.d/contactgroups_nagios2.cfg@" /usr/local/sbin/goNagios.pl
+# ...this file doesn't exist in the default Debian Nagios conf, so create
+touch /etc/nagios3/conf.d/contactgroups_nagios2.cfg
+
+# We'll need LDAP bind credentials later, so lets get them from fusiondirectory.conf
+LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
+LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
+echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+
+# FIXME: What exactly is this file for?
+cat > /etc/fusiondirectory/fusiondirectory_bind.conf <<-EOF
+	# ldap bind -- keep file protected with 0600
+	masterDN="$LDAP_ADMIN_DN"
+	masterPw="$LDAP_ADMIN_PW"
+EOF
+
+chmod 600 /etc/fusiondirectory/fusiondirectory_bind.conf
+
+# FIXME: We should also restart Nagios as the last action of this cronjob
+# We run our perl script regularly to build Nagios config from LDAP
+cat > /etc/cron.d/goNagios <<-EOF
+	PATH=/sbin:/bin:/usr/sbin:/usr/bin
+	
+	@reboot   root  /usr/local/sbin/goNagios.pl && /etc/init.d/nagios3 restart
+	@hourly   root  /usr/local/sbin/goNagios.pl && /etc/init.d/nagios3 restart
+EOF
+
+# We need our LDAP base dn and local domain name for later use...
+LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '/ */{ print $2 }'`
+echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
+LOCAL_DOMAINNAME=`hostname -d`
+
+# FIXME: I guess this script tells our goNagios.pl script how to pull data from
+# our LDAP tree, and a few other things???
+cat > /etc/fusiondirectory/nagios_ldap.conf <<-EOF
+	# ldap configuration
+	peopleou="ou=people,$LDAP_BASE_DN"
+	groupeou="ou=groups,$LDAP_BASE_DN"
+	base="$LDAP_BASE_DN"
+	scope="sub"
+	# FIXME: I added ldaps in front of this server name.
+        # This should work to enable ldaps - test
+	server="ldaps://$my_fqdn:636"
+	
+	# output mode. Info about what the script did.
+	# Available options are "mail" "log" "normal"
+	stdout="log"
+	# send script output info to:
+	email="admin@$LOCAL_DOMAINNAME"
+	# log script output info to:
+	logfile="/tmp/fusiondirectory-nagios.log"
+	
+	# the nagios defined object to send email
+	service_notification_commands="notify-service-by-email"
+	# the nagios defined object to send email
+	host_notification_commands="notify-host-by-email"
+EOF
+
+# Lastly, Apache must be able to auth users via LDAP...  this is how it's done.
+# Once Apache auths a user then the Nagios config controls the access etc... this
+# user will have.  We've already seen how this config is generated above.
+a2enmod authnz_ldap
+
+# FIXME: Hopefully this works now : test!
+sed -i 's@AuthUserFile /etc/nagios3/htpasswd.users@AuthBasicProvider ldap\
+	AuthzLDAPAuthoritative on\
+	AuthLDAPURL ldaps://'$my_fqdn':636/'$LDAP_BASE_DN'\
+	AuthLDAPBindDN '$LDAP_ADMIN_DN'\
+	AuthLDAPBindPassword "'$LDAP_ADMIN_PW'"\
+@' /etc/nagios3/apache2.conf
+
+/etc/init.d/apache2 restart
+/etc/init.d/nagios3 restart
+
+echo ""
+echo "Create a group in the FusionDirectory interface called 'admins' and enable"
+echo "the 'Members are in a nagios group' checkbox."
+echo "Put at least one user into this group - be sure to enable the Nagios user"
+echo "tab options for these user/s."
+echo ""
+echo "Once you have done this hit enter to continue..."
+read DUMMY_VALUE
+
+# Now that we have some Nagios values in LDAP we need to generate our
+# Nagios config.
+echo ""
+echo "...generating Nagios config from LDAP values..."
+/usr/local/sbin/goNagios.pl
+
+echo ""
+echo "To create hosts in Nagios go to /etc/nagios3/conf.d/ .  localhost_nagios2.cfg"
+echo "is created by default for the localhost, and can be used as a template for"
+echo "other hosts.  The essentials to change are the hostname and IP.  Read up on"
+echo "defining extra services etc if required.  Some good sites for info:"
+echo "http://www.monitoringexchange.org/"
+echo "http://exchange.nagios.org/"
+echo ""
+echo "The Nagios settings tab for Fusion Directory users define who gets alarm"
+echo "notifications for what kinds of issues, and when.  Groups can also be"
+echo "associated with Nagios so groups of users can be referenced in eg. host"
+echo "definitions."
+echo ""
+echo "Your nagios server is located here :"
+echo "https://"$my_fqdn"/nagios3"
+# Notes on monitoring switches :
+# Files required :
+# zcat /usr/share/doc/nagios3-core/examples/template-object/templates.cfg.gz > /etc/nagios3/conf.d/templates.cfg
+# NOTE:: Comment out the definitions for generic-host and generic-service from the above file
+# cp /usr/share/doc/nagios3-core/examples/template-object/switch.cfg /etc/nagios3/conf.d/
+
+# cat > /etc/nagios/conf.d/extra-commands.cfg <<-EOF
+## 'check_local_mrtgtraf' command definition
+#define command{
+#	command_name	check_local_mrtgtraf
+#	command_line	/usr/lib/nagios/plugins/check_mrtgtraf -F $ARG1$ -a $ARG2$ -w $ARG3$ -c $ARG4$ -e $ARG5$
+#	}
+#
+## 'check_snmp' command definition
+#define command{
+#        command_name    check_snmp
+#        command_line    /usr/lib/nagios/plugins/check_snmp -H $HOSTADDRESS$ $ARG1$
+#        }
+#EOF
+
+# ...edit switch.conf
+#Add a new host  definition for the switch that you're going to monitor. If this is the *first* 
+#switch you're monitoring, you can simply modify the sample host definition in switch.cfg. 
+#Change the host_name, alias, and address fields to appropriate values for the switch.
+#
+#define host{
+#	use		generic-switch		; Inherit default values from a template
+#	host_name		linksys-srw224p		; The name we're giving to this switch
+#	alias		Linksys SRW224P Switch	; A longer name associated with the switch
+#	address		192.168.1.253		; IP address of the switch
+#	hostgroups	allhosts,switches			; Host groups this switch is associated with
+#	}
+#
+#
+
+
+# MRTG notes :
+# MRTG may require this so that only fresh data is viewable eg. only less than 5mins old.
+# a2enmod expires
