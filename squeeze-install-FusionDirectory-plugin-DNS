@@ -1,0 +1,181 @@
+#!/bin/bash
+# This script installs and configures the Fusion Directory DNS plugin and
+# supporting software.  The LDAP and DNS servers are installed locally.
+
+# We must run this script as root
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# FIXME: prerequisite scripts (we should test these have run :
+# squeeze-install-FusionDirectory
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory-2.6 script before this one."
+  echo "Fusion Directory must be installed and configured before we can continue."
+  exit 1
+fi
+
+# Install required software :
+# Bind9 - the DNS server
+# ldap2zone - converts LDAP DNS records into a text config file for Bind9.
+# (we need to download this in source form and compile it)
+# dpkg-dev, subversion - needed for downloading and building the
+# ldap2zone package
+apt-get update
+apt-get -y --allow-unauthenticated install bind9 dpkg-dev libldap2-dev ldap-utils subversion fusiondirectory-plugin-dns fusiondirectory-plugin-dns-schema debhelper dpatch
+
+# The ldap2zone tool needs to be downloaded in source form, compiled, bundled
+# into a deb and installed.  Note:: I change one of the debian dependancies so
+# the package works in Debian Lenny and Squeeze.
+cd /usr/src
+#FIXME: This is the old repo...  left it here just in case.  Remove when new one is proven.
+#svn co https://oss.gonicus.de/repositories/goto/branches/goto2/ldap2zone
+if apt-get -qq --allow-unauthenticated install ldap2zone; then
+	echo "Installed ldap2zone from repositories..."
+else
+	svn co https://oss.gonicus.de/repositories/goto/trunk/ldap2zone
+	cd /usr/src/ldap2zone
+	dpkg-buildpackage -b
+	dpkg -i /usr/src/ldap2zone_*.deb
+fi
+# We need to configure slapd to include this dnszone schema.  We've also
+# added a couple of (optional) indexes here to boost performance.
+# FIXME: Once ldifs are bundled with Fusion Directory this can go...
+if [ -f /etc/ldap/schema/fusiondirectory/dnszone.ldif ]; then
+	echo "Adding schemas to LDAP tree..."
+else
+	echo "Hopefully ldif versions of schemas will be packaged soon,"
+	echo "but until this happens you will need to create these by hand."
+	echo "You could use slaptest, or the schema2bcldif.sh script."
+	echo "Please create an ldif version of dnszone.schemas in"
+	echo "/etc/ldap/schema/fusiondirectory and hit <enter> to continue..."
+	read dummy
+fi
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/dnszone.ldif
+
+cat > /tmp/fix.ldif <<-EOF
+	dn: olcDatabase={1}hdb,cn=config
+	replace: olcDbIndex
+	olcDbIndex:   zoneName						     eq
+	olcDbIndex:   relativeDomainName                                     eq
+EOF
+ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/fix.ldif
+rm /tmp/fix.ldif
+/etc/init.d/slapd stop
+#should we run slapindex as a user other than root?
+sudo -u openldap slapindex
+/etc/init.d/slapd start
+
+# We need to either uncomment or add the DNS plugin into Fusion Directory's
+# config.
+if grep '<!-- *<tab class="servdns" name="DNS" /> *-->' /etc/fusiondirectory/fusiondirectory.conf; then
+sed -i 's@<!-- *<tab class="servdns" name="DNS" /> *-->'\
+'@    <tab class="servdns" name="DNS" />'\
+'@' /etc/fusiondirectory/fusiondirectory.conf
+        echo "Uncommented the DNS plugin entry in fusiondirectory.conf"
+else
+        if ! grep servdns /etc/fusiondirectory/fusiondirectory.conf; then
+                sed -i 's@<serverservice>'\
+'@<serverservice>\
+    <tab class="servdns" />'\
+'@' /etc/fusiondirectory/fusiondirectory.conf
+                echo "Added a DNS plugin entry to fusiondirectory.conf"
+        else
+                echo "The DNS plugin is already enabled in your fusiondirectory.conf"
+        fi
+fi
+
+##### BEGIN LDAP2ZONE CONFIG #####
+## The ldap2zone tool (used to build zonefiles for the named bind daemon) needs
+## to be configured to know about our LDAP server.
+
+# We've already configured our base DN in cn=config, so we extract it so we don't
+# have to annoy the user for it.
+LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '/ */{ print $2 }'`
+echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
+
+# Notice that I've hard-configured localhost as our LDAP host.  Change in future?
+if grep "#LDAP_URI" /etc/default/ldap2zone; then
+echo "Configuring LDAP_URI in ldap2zone config :"
+echo "ldaps://localhost/"$LDAP_BASE_DN
+sed -i 's@#LDAP_URI="ldap://localhost"@LDAP_URI="ldaps://localhost/'$LDAP_BASE_DN\
+'"@' /etc/default/ldap2zone
+else
+  if grep LDAP_URI /etc/default/ldap2zone; then
+	echo "LDAP_URI in ldap2zone config already configured..."
+  else
+	cat >> /etc/default/ldap2zone <<-EOF
+	LDAP_URI="ldaps://localhost/$LDAP_BASE_DN
+	EOF
+  fi
+fi
+
+# NOTE:: ldap2zone's config file is actually a shell script that sets some
+# shell variables.  I take advantage of this when setting LDAP_HOST_PARAM
+# ie. I extract the LDAP hostname and base DN from LDAP_URI (set above) at
+# runtime.  
+if ! grep LDAP_HOST_PARAM /etc/default/ldap2zone; then
+  echo "Add LDAP_HOST_PARAM option to ldap2zones configuration..."
+cat >> /etc/default/ldap2zone <<'EOF'
+LDAP_HOST_PARAM="-H ldaps://"`echo $LDAP_URI | awk -F '/' '{print $3}i'`" -b "`echo $LDAP_URI | awk -F '/' '{print $4}'`
+EOF
+else
+  echo "LDAP_HOST_PARAM already configured in ldap2zone config..."
+fi
+##### END LDAP2ZONE CONFIG #####
+
+## FIXME:There's a RUN_DEPLOY option in /etc/default/ldap2zone...  I don't THINK
+## we need this configured, but perhaps I am wrong.  Its for running a cron
+## job.  (Does the gosa-si stuff take care of updating DNS zones now?)
+## It MAY be good to run both a cron and gosa-si (???)
+
+## If our LDAP server doesn't accept anonymous binds we might need the admin
+## accounts DN as part of our ldap2zone conf.  Leaving the following line
+## commented out for future use if we ever decide to add this to the script.
+#LDAP_CONNECT_DN=`grep 'admin="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+
+# Configure the named daemon so LDAP generated DNS zones are loaded
+if grep /etc/bind/named.conf.ldap2zone /etc/bind/named.conf; then
+	echo "/etc/bind/named.conf already configured..."
+else
+	echo "Configuring /etc/bind/named.conf to load LDAP-generated zones..."
+	sed -i 's@include "/etc/bind/named.conf.options";'\
+'@include "/etc/bind/named.conf.options";\
+include "/etc/bind/named.conf.ldap2zone";'\
+'@' /etc/bind/named.conf
+fi
+
+# ldap2zone requires this file to be created
+touch /etc/bind/named.conf.ldap2zone
+
+# FIXME: This is a patched a nasty bug in GOsa 2.6.10.  Remove once this is fixed
+sed -i 's@notify;@notify yes;@' /usr/sbin/ldap2bind
+
+# FIXME: This update-fusiondirectory command may not be required.  Test...
+update-fusiondirectory
+
+# FIXME: We could populate the instructions with good guesses of what the
+#        user should fill in.
+echo ""
+echo ">>> IMPORTANT - DO THIS BEFORE CONTINUING <<<"
+echo "In the Fusion Directory GUI you'll need to create or edit a server object"
+echo "in 'System Management'.  Because this script installs DNS on"
+echo "the local machine it will be a server object representing THIS"
+echo "server.  You must add a DNS service to this object and create"
+echo "a DNS zone.  You'll need to enter at least your Zone Name,"
+echo "Network address, primary dns server for this zone and mail address."
+echo "eg. 'example.com', '192.168.1.0', 'ns1.example.com' and 'me@example.com'"
+echo "NOTE::Your zone won't be saved until you hit 'Save' and then 'OK'"
+echo "You must then enable DNS for at least one host eg. your current server"
+echo "object."
+echo "< WHEN FINISHED hit enter to continue... >"
+read my_dummy_value
+
+echo "ldap2bind being run for the first time..."
+echo "NOTE: This will give errors unless at least one host has been added to DNS."
+# Make sure bind is running first...
+/etc/init.d/bind9 restart
+ldap2bind
+
+#FIXME: Perhaps some instructions on checking name resolution is functioning correctly?

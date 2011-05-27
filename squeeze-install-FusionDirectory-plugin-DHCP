@@ -1,0 +1,161 @@
+#!/bin/bash
+# Script to install and configure the Fusion Directory DHCP plugin and
+# supporting software.  We assume that bind and slapd are installed locally.
+
+# We must run this script as root
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# Test if we have run squeeze-install-FusionDirectory
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory script before this one.  Fusion"
+  echo "Directory must be installed and configured before we can continue..."
+  exit 1
+fi
+
+# Test if we have already run squeeze-install-FusionDirectory-plugin-DHCP
+if [ -f /etc/dhcp3/dhcpd.conf ]; then
+  echo "DHCPd is already installed!"
+  exit 1
+fi
+
+# Install the LDAP enabled DHCP3 server and FusionDirectory plugins.
+apt-get update
+if apt-get install -y --allow-unauthenticated isc-dhcp-server-ldap fusiondirectory-plugin-dhcp fusiondirectory-plugin-dhcp-schema; then
+	echo "Required packages successfully installed..."
+else
+	echo "Required packages failed to install successfully.  Exiting..."
+	exit 1
+fi
+
+# We need to configure our LDAP server to include our DHCP schema.  Some other
+# (optional) config changes have also been included here - several indexes are
+# created to improve performance.
+
+# FIXME: Once ldifs are bundled with Fusion Directory this can go...
+if [ -f /etc/ldap/schema/fusiondirectory/dhcp.ldif ]; then
+	echo "Adding schemas to LDAP tree..."
+else
+	echo "Hopefully ldif versions of schemas will be packaged soon,"
+	echo "but until this happens you will need to create these by hand."
+	echo "You could use slaptest, or the schema2bcldif.sh script."
+	echo "Please create ldif versions of all schemas in"
+	echo "/etc/ldap/schema/fusiondirectory and hit <enter> to continue..."
+	read dummy
+fi
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/dhcp.ldif
+
+cat > /tmp/fix.ldif <<-EOF
+	dn: olcDatabase={1}hdb,cn=config
+	replace: olcDbIndex
+	olcDbIndex:   dhcpHWAddress					     eq
+	olcDbIndex:   dhcpClassData                                          eq
+	olcDbIndex:   dhcpPrimaryDN					     eq
+	olcDbIndex:   dhcpSecondaryDN                                        eq
+EOF
+ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/fix.ldif
+rm /tmp/fix.ldif
+/etc/init.d/slapd stop
+#should we run slapindex as a user other than root?
+sudo -u openldap slapindex
+/etc/init.d/slapd start
+
+# Make sure the dhcpd.leases file exists, otherwise the dhcp server won't start.
+# This is probably not required if a nonbuggy version of the server is installed.
+# (I discovered a regression in the DHCP server deb)
+touch /var/lib/dhcp3/dhcpd.leases
+
+# Enable DHCP plugin in Fusion Directory configuration if required
+if grep '<!-- *<tab class="servdhcp" name="DHCP" /> *-->' /etc/fusiondirectory/fusiondirectory.conf; then
+sed -i 's@<!-- *<tab class="servdhcp" name="DHCP" /> *-->'\
+'@       <tab class="servdhcp" name="DHCP" />'\
+'@' /etc/fusiondirectory/fusiondirectory.conf
+echo "Uncommented the DHCP section in fusiondirectory.conf"
+else
+if ! grep servdhcp /etc/fusiondirectory/fusiondirectory.conf; then
+sed -i 's@<serverservice>'\
+'@<serverservice>\
+    <tab class="servdhcp" />'\
+'@' /etc/fusiondirectory/fusiondirectory.conf
+echo "Added a DHCP plugin entry to fusiondirectory.conf"
+else
+echo "DHCP plugin already configured in fusiondirectory.conf"	
+fi	
+fi
+
+
+
+
+# Edit /etc/dhcp3/dhcpd.conf and configure dhcpd to get its config from LDAP.
+# We use some script magic to extract LDAP connection details already
+# existing in fusiondirectory.conf and cn=config .
+
+LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
+
+LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
+echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+
+LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '/ */{ print $2 }'`
+echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
+
+
+if grep ^ldap-server /etc/dhcp/dhcpd.conf; then
+echo "LDAP connection info already configured in dhcpd.conf"
+else
+echo "Adding LDAP connection info to dhcpd.conf..."
+cat >> /etc/dhcp/dhcpd.conf <<-EOF
+	ldap-server "localhost";
+	ldap-port 636;
+	ldap-ssl ldaps;
+	ldap-tls-reqcert never;
+EOF
+echo 'ldap-username "'$LDAP_ADMIN_DN'";' >> /etc/dhcp/dhcpd.conf
+echo "ldap-password "$LDAP_ADMIN_PW";" >> /etc/dhcp/dhcpd.conf
+echo 'ldap-base-dn "'$LDAP_BASE_DN'";' >> /etc/dhcp/dhcpd.conf
+cat >> /etc/dhcp/dhcpd.conf <<-EOF
+	ldap-method dynamic;
+	ldap-debug-file "/var/log/dhcp-ldap-startup.log";
+EOF
+fi
+
+# We may want to make servers authoritative by default in future...
+# sed -i 's@#authoritative;@authoritative;@' /etc/dhcp/dhcpd.conf
+# FIXME: There is an "Authoritative service" checkbox in the Fusion Directory
+# GUI.  How is this enabled?  (It would be much better to push this decision
+# to the GUI).
+
+## FIXME: We've got a temporary bugfix here for Gosa 2.6.7.
+## There's a value in gosa.conf which needs to change :
+#sed -i 's@class="systems" />@class="systemManagement" />@' /etc/gosa/gosa.conf
+## Remove this if it's no longer required.
+
+# FIXME: Does this work?  If not, perhaps suggest logging out and logging in.
+# Do this to get the new option to show up...
+update-fusiondirectory
+/etc/init.d/apache2 restart
+
+echo ""
+echo "!!! IMPORTANT !!!"
+echo "For the DHCP server to start there needs to be DHCP info in LDAP :"
+echo " * In Fusion Directory a server object needs to be created and/or edited"
+echo "   (under System Management - ie. the Systems icon on the main screen)"
+echo "   Because have just installed dhcpd on THIS machine, the Fusion Directory"
+echo "   server object will be for this machine"
+echo " * DHCP needs to be enabled and configured for this server object."
+echo " * Hit BOTH 'Save' then 'OK' to commit your changes to LDAP"
+echo "   NOTE:: You'll not only need to create 'Global options' for dhcp,"
+echo "          you must also define a subnet.  Use the little icon to the"
+echo "          right of the 'Global options' section you just created."
+echo "Hit enter once you've completed the above..."
+read dummy_value
+
+echo ""
+echo "NOTE:: Ignore a failure to stop DHCP - it probably hasn't been started yet."
+/etc/init.d/isc-dhcp-server restart
+
+# FIXME: Is there a cron job that needs to be set up to restart dhcp3-server
+#        periodically, or does gosa-si handle this?  Do we need to suggest
+#        installing gosa-si here?

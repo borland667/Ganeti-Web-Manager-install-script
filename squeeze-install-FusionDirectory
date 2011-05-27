@@ -1,0 +1,686 @@
+#!/bin/bash
+#,------------------------------------------------------------------------------
+#| Script to install and configure Fusion Directory and supporting software in a
+#| Debian Squeeze environment (and may work in Lenny).
+#|
+#| WARNING:: This script is very new and experimental.  At this stage
+#| it's more intended as documenation that can be easily verified for
+#| correctness by running on a test machine.  It would be best to use this
+#| script as documentation and perhaps cut/paste and run small sections.
+#| It assumes an LDAP server will be newly installed on the same box as Fusion
+#| Directory.
+#|
+#| Summary of installation steps :
+#| 0) Check we're root and that we have a real IP before we get started. ;)
+#| 1) Install the latest Fusion Directory from the repository, and some other
+#|    required software such as Apache2, php5 and the Slapd LDAP server.
+#| 2) Modify our PHP configuration with changes Fusion Directory requires.
+#| 3) Generate encryption keys and certificates.
+#| 3) Set up TLS encryption on our LDAP server using the keys and certs to
+#|    protect any sensitive data that travels to/from the server over the
+#|    network.
+#| 4) Install some schemas into our LDAP server config.  A schema tells our
+#|    LDAP server the format of the data we want it to store.
+#| 5) Configure apache to allow https so we can remotely connect to the
+#|    Fusion Directory GUI more safely.
+#| 6) Restart slapd and apache so we can log in and begin configuring Fusion
+#|    Directory through its GUI.
+#'------------------------------------------------------------------------------
+
+# We must run this script as root
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# Check for valid IP.  Warn if only configured to 127.0.x.x
+my_fqdn=`hostname -f`
+my_host_ip=`grep $my_fqdn /etc/hosts | awk '{ print $1 }'`
+echo ""
+echo "Your fully qualified hostname is "$my_fqdn
+echo "and your IP is "$my_host_ip
+if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
+	echo ""
+	echo "You should really make your hostname resolve to a valid network IP."
+	echo "This is required for plugins such as OPSI and is generally a good idea."
+	echo "To do this edit your /etc/hosts file and make sure your hostname"
+	echo "(printed above) resolves to an IP other than 127.x.x.x"
+	echo "Your /etc/network/interfaces will also need to match. eg. :"
+	echo "iface eth0 inet static"
+	echo "    address 192.168.1.120"
+	echo "    netmask 255.255.255.0"
+	echo "    gateway 192.168.1.1"
+	echo "To make this take effect : killall dhclient3;ifdown eth0;ifup eth0"
+	echo "'Ctrl-C' to exit or hit <enter> to continue..."
+	read my_dummy_value 
+fi
+
+#,------------------------------------------------------------------------------
+#| Choose a Fusion Directory repo.  Perhaps we can put an experimental repo
+#| in here in future - I've commented out some old repo bits related to GOsa
+#| that can be easily edited.
+#'------------------------------------------------------------------------------
+
+REPO_CHOICE=0
+while [ $REPO_CHOICE -lt 1 ] || [ $REPO_CHOICE -gt 3 ]
+do
+  echo ""
+  echo "Which repository will you be using? :"
+  echo "1) The Fusion Directory Squeeze repository"
+#  echo "2) ...another choice..."
+#  echo "3) ...a third choice..."
+  echo ""
+  echo "...enter the number of your choice :"
+  read REPO_CHOICE
+
+#  if [ $REPO_CHOICE -eq 3 ]; then
+#    if [ -f /etc/apt/sources.list.d/gosa.list ]; then
+#      echo "deb http://apt.gosa-addons.org/ squeeze main" >> /etc/apt/sources.list.d/gosa.list
+#    fi
+#  fi
+
+#  if [ $REPO_CHOICE -eq 2 ]; then
+#    if [ -f /etc/apt/sources.list.d/gosa.list ]; then
+#      echo "deb http://apt.gosa-addons.org/ lenny main" >> /etc/apt/sources.list
+#    fi
+#  fi
+  if [ $REPO_CHOICE -eq 1 ]; then
+    if [ ! -f /etc/apt/sources.list.d/fusiondirectory.list ]; then
+      echo "deb http://apt.fusiondirectory.org/debian/ squeeze main" >> /etc/apt/sources.list.d/fusiondirectory.list
+    fi
+  fi
+done
+
+apt-get update
+
+#,------------------------------------------------------------------------------
+#| Fusion Directory and required software can now be installed.
+#|
+#| NOTE:: We're installing all software onto the local server machine for
+#| demonstration purposes.  We could have installed LDAP on another machine,
+#| or we could simply have used a pre-existing LDAP installation.
+#|
+#| Because this is a demonstration we're using encrypted connections to LDAP
+#| instead of unix sockets which would be usual for a single-machine
+#| scenario; this means this configuration can be easily adapted to multi-machine
+#| infrastructures.  NOTE: Because Debian no longer links OpenSSL to OpenLDAP
+#| due to legal worries they use GNUTLS instead.  GNUTLS-bin contains the
+#| certtool application which generates certificates which the GNUTLS libs
+#| will accept without error - I had problems with certs generated by the
+#| OpenSSL tools.
+#'------------------------------------------------------------------------------
+
+# By default slapd sets our Certificate Authorities 'organisation name' to
+# our hosts domain name.  Just in case we want to set this to something
+# different we make slapd installation noninteractive - we use a more detailed
+# configuration method later.
+DEBCONF_FRONTEND="noninteractive"
+if apt-get -y --allow-unauthenticated install apache2-mpm-prefork php5-snmp slapd ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin; then
+	echo "Installation of Fusion Directory and prerequisite packages successful..."
+	unset DEBCONF_FRONTEND
+else
+	echo "Installation of Fusion Directory and prerequisite packages failed.  Exiting..."
+	unset DEBCONF_FRONTEND
+	exit 1
+fi
+
+# Detailed reconfiguration of slapd
+echo ""
+echo "The next step is configuring the slapd LDAP server.  Please remember :"
+echo "1) The base dn you use for your LDAP directory (generated from the"
+echo "   domain name you input during the configuration)."
+echo "2) Your admin password"
+echo "3) Your organisation name"
+echo "IMPORTANT!!! - this info will be required later both in this script"
+echo "and the scripts that install plugins."
+echo "<hit enter to continue>"
+read my_dummy_value
+dpkg-reconfigure slapd
+
+#,-----------------------------------------------------------------------------
+#| We must make some changes to PHPs configuration as required by Fusion
+#| Directory.
+#| The expose_php option is changed from "On" to "Off", and the memory_limit
+#| option is expanded to 128M.  The memory_limit option stops a script from
+#| consuming more RAM than the amount specified.  The expose_php option
+#| (when enabled) reports that PHP is being used, and what version of
+#| PHP is installed. We disable it so malicious users can't use the info.
+#'-----------------------------------------------------------------------------
+echo -e "expose_php = Off\nmemory_limit = 128M" > /etc/php5/apache2/conf.d/fusiondirectory.ini
+
+#,------------------------------------------------------------------------------
+#| In a multi-machine network we must guard against eavesdroppers.
+#| The LDAP standard allows the use of TLS encryption to achieve this.
+#|
+#| TLS is a type of public-key cryptography.  I accidentally wrote an essay on
+#| this, so if you already know what it is feel free to skip the following
+#| LOOOONG explanation :
+#'------------------------------------------------------------------------------
+
+#!!!! BEGIN EXPLANATION OF PUBLIC-KEY CRYPTOGRAPHY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#!
+#! Cryptography is the science of encoding messages so they are hopefully
+#! unreadable to anyone except the entity the message is meant for.
+#! Understanding public-key cryptography is useful.  Net banking and lots of
+#! other sensitive business on networks is kept safe using this technology, and
+#! if you know how it works you can better avoid the bad guys.  Learning about
+#! sending secret messages is interesting in its own right anyway.
+#!
+#! Public-key cryptography relys on the use of "asymmetric key"
+#! algorithms.  It's important to understand what this term means, so I'll
+#! explain it by contrasting it with a common "symmetric key" algorithm that
+#! kids often use to send secret messages.
+#!
+#! An example of a very simple symmetric key algorithm is the Caesar cypher.
+#! Once used by Julius Caesar to send messages to his generals it is now often
+#! used by children to send secret messages.  It involves shifting each
+#! letter of a message a fixed number of positions down the alphabet.  eg.
+#! for a shift of three "A" would be replaced by "D", "B" would become "E",
+#! "message" would become "phvvdjh" etc.  This kind of algorithm is called
+#! "symmetric" because the "key" (ie. number) used to decrypt the message is
+#! closely related and often identical to the key used to encrypt. In our
+#! "Caesar cypher" example the number we use to decrypt the message (ie. -3)
+#! is easy to discover from the number used to encrypt the message (ie. +3).
+#! NOTE WHAT THIS MEANS:: We need to keep the encryption key (ie. +3) a
+#! secret because anyone who knows it can easily work out the decryption
+#! key (ie. -3) and read our message!
+#!
+#! "Asymmetric" algorithms on the other hand rely on some very strange
+#! mathematics(*) - the number used to decrypt a message is very difficult (and
+#! hopefully just about impossible) to discover even when you know the
+#! number used to encrypt it.  It's not important to understand the maths,
+#! but it IS important to understand the useful implication - our messages are
+#! kept secret even if the world knows our encryption key!  We can share
+#! our encryption (or "public") key with the world and people can use it to
+#! encrypt messages which only we can decrypt - provided we keep our decryption
+#! or "private" key secret.  They CAN'T use the "public" key to discover our
+#! secret "private" key and (for example) decrypt messages other people have
+#! encrypted for us using our public key.  NOTE:: This is why this kind of
+#! cryptography is called Public-Key cryptography.
+#!
+#! We therefore need to distribute our public key so others can send us
+#! encrypted messages, but they need to be sure the public key really belongs
+#! to us.  There are two concepts that are useful for this - digital signatures
+#! and certificates.  Just as in the real world signatures can be used to sign
+#! certificates.
+#!
+#! Digital signatures : In real life a signature on some information means the
+#! owner of the signature approved the information.  To digitally "sign"
+#! something we mathematically "apply" our private key to the data using
+#! software.  This process generates a "digital signature" which is really just
+#! a big number.  We send this number along with the data, and this allows the
+#! recipient to verify it was signed by our private key (provided they have our
+#! public key and the right software).  The signing proves the data is from us
+#! (unless someone stole our private key, or we gave it to someone to act on
+#! our behalf).
+#!
+#! Digital certificates : Because anyone with the right software can create
+#| a public/private pair of keys the "digital certificate" was invented as
+#| a way of certifying who a particular key belongs to (eg. a bank).
+#| Certificates are digitally signed documents that contain four pieces of
+#| information :
+#! 1) a public key,
+#! 2) the identity/details of who this public key belongs to,
+#! 3) a digital signature from someone vouching that the public key really
+#!    belongs to the identity on the certificate.  (IMPORTANT: we need to
+#!    ask ourselves if we trust who signed this certificate), and
+#! 4) the length of time the certificate should be considered valid.
+#!
+#! How do we know which digital signatures to trust?  In some cases the writers
+#! of software decide this for you.  Web browsers for instance trust many
+#! Certificate Authorities (CA's) - companies such as Verisign and Thawte who
+#! are in the business of verifying and signing off on identites.  Banks and
+#! other secure sites will often get their certificates signed by these CAs so
+#! that web browsers will automatically trust them.  If a certificate has NOT
+#! been signed by an entity your browser already trusts then you will get a
+#! warning and an option to continue anyway - it's then up to you if you trust
+#! the site or not.
+#!
+#! Opinions differ on the value of trusted certificates.  You have to trust
+#! that the CA companies won't (accidentally or otherwise) issue certificates
+#! to the bad guys, or a CA issued certificate hasn't been stolen to fake
+#! data as having come from the certificate owner.
+#!
+#! * - regarding the "strange mathematics" used in public key cryptography :
+#|     Factorisation of "semiprimes" is an example of asymmetric mathematics.
+#|     A semiprime is the product of two prime numbers.  Finding two large
+#|     primes and multiplying them together is simple, but working the opposite
+#|     way ie. finding the original factors APPEARS to be very very difficult.
+#|     If anyone finds a more efficient method of factorisation then encryption
+#|     methods based on factorisation will be considered weakened or broken
+#|     (depending on the efficiency of the new method).
+#|     
+#!!!! END EXPLANATION OF PUBLIC-KEY CRYPTOGRAPHY !!!! !!!!!!!!!!!!!!!!!!!!!!!!!!
+
+#,------------------------------------------------------------------------------
+#| SSL/TLS encryption can either use a "self-signed" certificate, or a
+#| certificate digitally signed by a third party.  It's possible to use a
+#| self-signed certificate here...  but these can cause warnings/errors in
+#| some situations, and some advanced features such as CRL's (certificate
+#| revokation lists) are only available when we have our certificate signed
+#| by a third party ie. Certificate Authority (CA).  In this script we create
+#| our OWN root CA, but we could also get a certificate issued by a CA company.
+#|
+#| A quick note for those not new to digital certificates :
+#| Debian now compiles much of its software using the GNUTLS libraries and not
+#| OpenSSH.  I had better luck getting certificates generated by certtool
+#| (the GNUTLS certificate generation tool) rather than the openssh tool.
+#|
+#| When generating certificates certtool requires details in the form
+#| of a "template" file.  A certificate can contain a lot more information
+#| than the barest basics I've included here. eg. Country, state, extra
+#| config options etc...  The expiration_days setting sets how long your certs
+#| will be valid for.  crl_signing_key allows your key to be used to sign
+#| Certificate Revocation Lists (but I haven't investigated how this feature is
+#| used myself).
+#'------------------------------------------------------------------------------
+
+mkdir /etc/ssl/templates
+chmod 640 /etc/ssl/templates
+chown root.ssl-cert /etc/ssl/templates
+cd /etc/ssl/templates
+#FIXME:Should we ask for a user-provided cn for our cert here?  Perhaps other info??
+certtool --generate-privkey > local-ca.key
+chmod 600 local-ca.key
+mv local-ca.key /etc/ssl/private/
+cat > /etc/ssl/templates/local-ca.info <<-EOF
+	cn = "Local CA"
+	expiration_days = 3650
+	ca
+	cert_signing_key
+	crl_signing_key
+EOF
+chmod 640 /etc/ssl/templates/local-ca.info
+certtool --generate-self-signed --load-privkey /etc/ssl/private/local-ca.key \
+  --template local-ca.info --outfile ssl-cert-local-ca.pem
+mv ssl-cert-local-ca.pem /etc/ssl/certs/
+# FIXME: we shouldn't touch the snakeoil certificates and instead create one
+# corresponding to the service we want to enable - for example for slapd we
+# should generate slapd.pem
+#
+certtool --generate-privkey > ssl-cert-snakeoil.key
+chmod 640 ssl-cert-snakeoil.key
+chown root.ssl-cert ssl-cert-snakeoil.key
+# FIXME: Regarding certtool template files
+# tls_www_server means a server machine(?)
+# Is dns_name important???
+# Should we ask for more attributes to put into certs?
+
+# This script needs an "organisation name" for the servers certificate.
+# We can extract this name from our Debian configuration because the user has
+# already entered an "organisation name" as part of slapd's configuration.
+org_name=`debconf-show slapd | sed -n 's@.*shared/organization:[[:space:]]@@p'`
+
+echo ""
+echo "Generating a digital certificate for your server..."
+echo "We automatically use "$my_fqdn" as your servers"
+echo "FQDN on the certificate and '"$org_name"' as your"
+echo "servers organisation name."
+echo ""
+
+cat > /etc/ssl/templates/snakeoil.info <<-EOF
+	organization = "Default Org Name"
+	cn = "temp-hostname.com"
+	expiration_days = 1095
+	tls_www_server
+	encryption_key
+	signing_key
+EOF
+chmod 640 /etc/ssl/templates/snakeoil.info
+sed -i 's@temp-hostname.com@'$my_fqdn'@' /etc/ssl/templates/snakeoil.info
+sed -i 's@Default Org Name@'$org_name'@' /etc/ssl/templates/snakeoil.info
+
+certtool --generate-certificate --load-privkey ssl-cert-snakeoil.key \
+  --load-ca-certificate /etc/ssl/certs/ssl-cert-local-ca.pem \
+  --load-ca-privkey /etc/ssl/private/local-ca.key \
+  --template snakeoil.info --outfile ssl-cert-snakeoil.pem
+
+mv /etc/ssl/certs/ssl-cert-snakeoil.pem /etc/ssl/certs/ssl-cert-snakeoil.pem.old
+mv /etc/ssl/private/ssl-cert-snakeoil.key /etc/ssl/private/ssl-cert-snakeoil.key.old
+
+mv ssl-cert-snakeoil.pem /etc/ssl/certs/
+mv ssl-cert-snakeoil.key /etc/ssl/private/
+
+# FIXME : Perhaps I should make this semi-automatic - ie. prompt if it's a problem.
+# IF YOU HAVE RECONFIGURED OR REINSTALLED SLAPD MORE THAN TWICE PLEASE READ :
+# If slapd is configured more than twice the installation will fail because of
+# an ldap db backup which fails to be overwritten during the third configuration
+# attempt.  This may be a problem with the slapd package. As a work-around :
+# rm -R /var/backups/unknown-2.4.*.ldapdb
+
+#,------------------------------------------------------------------------------
+#| We allow only secure connections to our LDAP server.  We COULD also use
+#| ldapi (ie. a local unix socket), but ldaps is networkable which makes this
+#| script more easily adapted to scenarios with many servers connected by a
+#| network.  We enable both ldapi and ldaps, but only use ldaps in the scripts.
+#'------------------------------------------------------------------------------
+
+# If in Debian Lenny :
+sed -i 's@# SLAPD_SERVICES="ldap://127.0.0.1:389/ ldaps:/// ldapi:///"@SLAPD_SERVICES="ldaps:/// ldapi:///"@' /etc/default/slapd
+# If in Debian Squeeze :
+# FIXME: Is the following still correct???
+sed -i 's@SLAPD_SERVICES="ldap:/// ldap[si]:///"@SLAPD_SERVICES="ldaps:/// ldapi:///"@' /etc/default/slapd
+
+# The method for configuring slapd has changed.  Instead of editing slapd.conf we now make config
+# changes inside slapd's own LDAP tree.  This is called the cn=config method.  We must therefore
+# make sure slapd is running here.
+/etc/init.d/slapd restart
+
+# FIXME: The new Squeeze slapd package now prevents access to schema information.
+#        There's an option to prevent Fusion Directory needing to checking the
+#        schema info.  We should make this next change optional, and instruct the
+#        user.
+#        
+# By default Fusion Directory can't get information from LDAP about schemas.  This
+# config change will allow it.
+echo '
+	dn: olcDatabase={-1}frontend,cn=config
+	replace: olcAccess
+	olcAccess: to dn.base="" by * read
+	olcAccess: to dn.base="cn=subschema" by * read
+' | ldapmodify -Y EXTERNAL -H ldapi:///
+
+#,------------------------------------------------------------------------------
+#| Here we add the TLS encryption certificate and key file we made earlier to
+#| our OpenLDAP server config.
+#|
+#| There are also some more tuning values for slapd we add while we are at it.
+#| I have explained all config changes in the comments below.
+#'------------------------------------------------------------------------------
+echo "
+	dn: cn=config
+	add: olcTLSCACertificateFile
+	olcTLSCACertificateFile: /etc/ssl/certs/ssl-cert-local-ca.pem
+-
+	add: olcTLSCertificateFile
+	olcTLSCertificateFile: /etc/ssl/certs/ssl-cert-snakeoil.pem
+-
+	add: olcTLSCertificateKeyFile
+	olcTLSCertificateKeyFile: /etc/ssl/private/ssl-cert-snakeoil.key
+" | ldapmodify -Y EXTERNAL -H ldapi:///
+
+# FIXME: These tuning values were set in the old slapd.conf config.  How do we
+#        set these now???
+	## The GOsa guys explicitly set this to {crypt}, and the default is the
+	## stronger {ssha}.  Cajus says this is for compatibility reasons...
+	## FIXME: what could {ssha} give compatibility issues to?  Discuss.
+	#password-hash {crypt}
+
+	## The GOsa guys set loglevel to 500.  This sets the following flag :
+	## 1024 print communication with shell backends
+	## (Read the other flag values by typing "man 5 slapd.conf" and searching
+	## for "loglevel"  Keep in mind - logging effects performance!
+	#loglevel 1024
+
+# FIXME: Once ldifs are bundled with Fusion Directory this can go...
+if [ -f /etc/ldap/schema/fusiondirectory/samba3.ldif ]; then
+	echo "Adding schemas to LDAP tree..."
+else
+	echo "Hopefully ldif versions of schemas will be packaged soon,"
+	echo "but until this happens you will need to create these by hand."
+	echo "You could use slaptest, or the schema2bcldif.sh script, e.g.:"
+	echo "    cd /etc/ldap/schema/fusiondirectory"
+	echo "    for i in *.schema; do"
+	echo '        /usr/local/bin/schema2bcldif "$i" > ${i/schema/ldif}'
+	echo '    done'
+	echo "Please create ldif versions of all schemas in"
+	echo "/etc/ldap/schema/fusiondirectory and hit <enter> to continue..."
+	read dummy
+fi
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/samba3.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/trust.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gosystem.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gofon.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/goto.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gosa-samba3.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gofax.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/goserver.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/goto-mime.ldif
+## FIXME: Should this really be commented out...  This ldif is no longer installed
+##        by default.
+#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/hdb.ldif
+
+## FIXME: Update for cn=config...  Is this even required?
+#  sed -i 's@^include.*/etc/ldap/schema/gosa/goto-mime.schema'\
+#'@include         /etc/ldap/schema/gosa/goto-mime.schema\
+#include         /etc/ldap/schema/gosa/hdb.schema@' /etc/ldap/slapd.conf
+
+# Configure indexes to make accessing LDAP more efficient
+# FIXME: Document what these indexes are for.
+# FIXME: This will need to be updated for cn=config
+#,------------------------------------------------------------------------------
+#| Our LDAP server also needs to know the format of the data we need it to
+#| store, so we include the required descriptions (or "schemas") in the
+#| server config file.  This is done in the following way :
+#| include <path to schema file>
+#|
+#| To improve search performance on certain attributes we also tell slapd to
+#| maintain indexes on these attributes. Slapd indexes increase search
+#| performance at the expense of memory and write performance.  This is only a
+#| concern in larger directories, and/or heavily loaded servers.  Indexes are
+#| of the form :
+#| index <attribute/s> <index type/s>
+#|
+#| When tuning you will want to preferentially index the most searched attributes.
+#| I have no idea what these are in Fusion Directory.  :)  The "index type/s"
+#| describe what kinds of searches the index should support.  The three types
+#| we will use are :
+#|
+#| 1) eq : searches of the form 'sn=smith' (ie. uses the EQUALITY rule only).
+#|
+#| 2) sub : substring or "wildcard" searches eg. 'sn=sm*' i.e wildcards are
+#| included (uses the SUBSTR rule). This rule may be enhanced by a using
+#| "subinitial" (optimised for 'sn=s*'), "subany" (optimised for 'sn=*n*') or
+#| "subfinal" (optimised for 'sn=*th'). One or more sub parameters may be
+#| included.
+#|
+#| 3) pres : searches for "presence" of an attribute.  Searches are in the form
+#| 'objectclass=person', 'attribute=mail' etc...
+#|
+#| There are many other index types (eg. attrlist, special, approx), but
+#| we don't use them so I'm not going to discuss them.
+#|
+#| If you want to see another slapd config tuned for Fusion Directory look in
+#| the package documentation :
+#| /usr/share/doc/fusiondirectory/slapd.conf-example/slapd.conf.gz .
+#'------------------------------------------------------------------------------
+echo '
+	dn: olcDatabase={1}hdb,cn=config
+	replace: olcDbIndex
+	olcDbIndex:   default                                                sub
+	olcDbIndex:   modifyTimestamp                                        eq
+	olcDbIndex:   uid,mail                                               approx,sub,pres,eq
+	olcDbIndex:   gosaSnapshotDN                                         eq
+	olcDbIndex:   gosaSnapshotTimestamp                                  eq,sub
+	olcDbIndex:   gosaMailAlternateAddress,gosaMailForwardingAddress     eq
+	olcDbIndex:   cn,sn                                                  approx,sub,pres,eq
+	olcDbIndex:   givenName                                              approx,sub,pres,eq
+	olcDbIndex:   ou                                                     pres,eq,sub
+	olcDbIndex:   objectClass                                            pres,eq
+	olcDbIndex:   uidNumber,gidNumber,memberuid                          eq
+	olcDbIndex:   gosaSubtreeACL,gosaObject,gosaUser                     pres,eq
+' | ldapmodify -Y EXTERNAL -H ldapi:///
+
+## I've got heavy indexes on uid, mail, objectClass, cn and sn because Kolabs
+## heavy searching will benefit.  If we don't plan to install Kolab we could
+## use eg. :
+#index   uid,mail                                               eq
+#index   cn,sn                                     pres,eq,sub
+#index   objectClass                                            pres,eq
+#index   givenName                                  pres,eq,sub
+
+# We've already configured our base DN during configuration, so we extract it
+# so we don't have to annoy the user for it.  We use it for setting
+# defaultsearchbase in slapd.conf .
+LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | sed -n 's@^olcSuffix:[[:space:]]*@@p'`
+echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
+
+# FIXME: This used to work for slapd.conf...  update?
+# The following two sed statements are for activating the "monitor" database
+# backend for slapd.  This allows monitoring of various runtime status info.
+# The optional defaultsearchbase is also defined - description in comments.
+# FIXME: Does this backend specifically help Fusion Directory?  If so, how??
+#sed -i 's@moduleload[ \t]*back_hdb@moduleload      back_monitor\
+#moduleload      back_hdb\
+#\
+#\# If a searchbase isnt specified in a search this is the default used.\
+#\# This configuration option must appear before any backend definitions.\
+#defaultsearchbase	'$LDAP_BASE_DN'@' /etc/ldap/slapd.conf
+#
+#sed -i 's@^database hdb@\# Fusion Directory addition: we add the monitor backend directly.\
+#\# before hdb.  We can do this because the monitor backend doesnt require any\
+#\# configuration of its own.\
+#database monitor\
+#database hdb@' /etc/ldap/slapd.conf
+
+# Give user "openldap" group ownership of certs via the ssl-cert group.
+usermod -G ssl-cert openldap
+
+#,------------------------------------------------------------------------------
+#| LDAP clients will also need valid certs and keys, and LDAP connection details.
+#| Many LDAP-aware pieces of software look in /etc/ldap/ldap.conf for 
+#| configuration.  NOTE:: we reuse our previously extracted base dn- and use it to
+#| configure ldap.conf to save any users of this script having to think or type.
+#'------------------------------------------------------------------------------
+
+echo "" >> /etc/ldap/ldap.conf
+echo "# ADDED BY FUSION DIRECTORY INSTALL SCRIPT" >> /etc/ldap/ldap.conf
+echo "BASE    "$LDAP_BASE_DN >> /etc/ldap/ldap.conf
+
+# NOTE: The URI below could be "ldaps://" alone, and this would be valid, BUT
+#       there is a bug in a Fusion Directory utility program called
+#       ldap2repository which doesn't accept this syntax.
+# FIXME: Remove this note when the problem is fixed.
+cat >> /etc/ldap/ldap.conf <<-EOF
+	URI     ldaps://$my_fqdn/
+	
+	TLS_REQCERT never
+	TLS_CACERT /etc/ssl/certs/ssl-cert-local-ca.pem
+	TLS_CERT /etc/ssl/certs/ssl-cert-snakeoil.pem
+	TLS_KEY /etc/ssl/private/ssl-cert-snakeoil.key
+EOF
+
+# DEBUG:: to test if LDAP is accessible using this configuration install the
+# ldap-utils package and run "ldapsearch -x".  (Slapd will need to be restarted
+# if you've only just made the above changes eg. if you're using this script as
+# a howto for making manual configuration changes.).
+ 
+# FIXME: The beginnings of the Kerberos stuff...  disabled for now by assigning
+# zero to the kerberos variable below :
+kerberos=0
+if [ $kerberos -eq 1 ]; then
+  # FIXME: Which of these files are required on the client and on the server?  Document.
+  apt-get -y --force-yes install gosa-si-client-krb5 gosa-plugin-mit-krb5 gosa-plugin-mit-krb5-schema krb5-kdc-ldap krb5-admin-server krb5-kdc krb5-config krb5-user
+
+  /etc/init.d/slapd restart
+  # Run krb5_newrealm to set up a new realm read the 
+  # /usr/share/doc/krb5-kdc/README.KDC file for instructions
+  krb5_newrealm
+  # We need to add this...  the manpages of this file should document
+cat >> /etc/gosa-si <<-EOF
+	[krb5]
+	admin = user
+	password = password
+EOF
+
+  sed -i 's@# \*/admin \*@\*/admin \*@' /etc/krb5kdc/kadm5.acl
+
+  # NOTE1::For a multiple server scenario :
+  # krb5-kdc adds a commented-out line for kpropd to /etc/inetd.conf.  You
+  # will want to uncomment this on slave KDCs so that they can receive updates
+  # from the master, but leave it commented out on the master.
+  # NOTE2::We could also add pam_mkhomedir.so to our PAM config so that we
+  # can have automatic creation of home directories.  On squeeze this should
+  # be managed by pam-auth-update rather than manually editing the PAM config.
+fi
+
+#,-----------------------------------------------------------------------------
+#|  Kerberos Terminology vs Microsoft Terminology
+#|
+#|  KDC (Key Distribution Centre) / DC (Domain Controller)
+#|  
+#|
+#'-----------------------------------------------------------------------------
+
+# Index our LDAP database as we've added some new indexes.  (slapd needs to stop)
+/etc/init.d/slapd stop
+sudo -u openldap slapindex
+
+
+#,-----------------------------------------------------------------------------
+#| For security we should run our Fusion Directory GUI on a SSL enabled web
+#| server.  We configure Apache to enable SSL below :
+#'-----------------------------------------------------------------------------
+
+a2ensite default-ssl
+a2enmod ssl
+
+# We can now access Fusion Directory via https.  NOTE:: there are
+# SSLCertificateFile and SSLCertificateKeyFile directives in
+# /etc/apache2/sites-available/default-ssl.
+# These by default point to the snakeoil certs which we replaced earlier.
+# I mention this in case you modify this script to use eg. purchased certs
+# under different filenames - the Apache cert configuration will need to be
+# modified in this case.
+#
+# If we wanted to ensure ONLY encrypted connections to Apache we could
+# disable port 80 on Apache by editing /etc/apache2/ports.conf.
+# Alternatively there's an option in the Fusion Directory config to force
+# Fusion Directory to only use https : "Enforce encrypted connections" on the
+# "Fusion Directory settings 3/3"
+# page of the Fusion Directory setup.  If you want to change this later the
+# option is forceSSL in fusiondirectory.conf.
+
+#,------------------------------------------------------------------------------
+#| Apache and Slapd should be restarted so the configuration changes we made to
+#| PHP and LDAP take effect.
+#'------------------------------------------------------------------------------
+/etc/init.d/slapd restart
+/etc/init.d/apache2 restart
+
+#,------------------------------------------------------------------------------
+#| Fusion Directory's interactive config web page should now be running on the
+#| local machine.  The instructions below describe how to access and use this
+#| page.
+#'------------------------------------------------------------------------------
+echo ""
+echo "!!! IMPORTANT !!!"
+echo "To access Fusion Directory's setup wizard go to :"
+echo "https://"$my_fqdn"/fusiondirectory/"
+echo "If you want to stop browser warnings about untrusted certificates simply"
+echo "import our new CA cert : /etc/ssl/certs/ssl-cert-local-ca.pem ."
+echo "eg. in Firefox go to Edit/Preferences, and under 'Advanced' go to the"
+echo "Encryption tab and click on the 'View Certificates' button and import"
+echo "our new CA cert file from the above location."
+
+# FIXME: Could I print out (or perhaps even autoconfig?) the Connection URI,
+# Base DN and Admin DN for use in Fusion Directory setup wizard?
+
+# If there are issues with connecting to slapd you can try running slapd from 
+# the commandline.  The -d switch specifies debugging...  specify the debug
+# level required eg :
+# slapd -d 1 -h "ldaps:/// ldapi:///" -F /etc/ldap/slapd.d
+
+#,------------------------------------------------------------------------------
+#| Backup instructions :
+#| Fusion Directory's config lives in /etc/fusiondirectory/fusiondirectory.conf,
+#| and slapd's config dir in
+#| /etc/ldap/slapd.d.  These files can be fairly easily recreated, but it
+#| wont hurt to back them up anyway.
+#| FIXME: The following is obsolete info - slapd no longer uses slapd.conf -
+#| you will need to modify this script : To backup the LDAP database you can
+#| add the /usr/share/doc/slapd/examples/slapd.backup script to cron.  This
+#| will write daily backups to /var/backups/slapd/ :
+#|
+#| cp /usr/share/doc/slapd/examples/slapd.backup /etc/cron.daily
+#| chmod 755 /etc/cron.daily/slapd.backup
+#|
+#| To restore make sure slapd is stopped, clean out any existing data ie. :
+#| rm -R /var/lib/ldap/*
+#| ...then use slapadd to load data from the ldif backup eg. :
+#| slapadd -v -c -l backup.ldif -f /etc/ldap/slapd.conf
+#| ...then run slapindex, and then start slapd
+#| NOTE:: Any extra schemas must be installed in slapd's configuration ie. in
+#| /etc/ldap/slapd.conf .  You either need to restore (if you backed it up) or
+#| recreate (using this script?) this config file.
+#'------------------------------------------------------------------------------

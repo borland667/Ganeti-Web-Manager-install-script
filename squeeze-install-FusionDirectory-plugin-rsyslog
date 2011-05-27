@@ -1,0 +1,40 @@
+#!/bin/bash
+# Shell script to install an rsyslog server managed by Fusion Directory
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# Prerequisite script - test this has run :
+# squeeze-install-FusionDirectory
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory script before this one."
+  echo "Fusion Directory must be installed and configured before we can continue."
+  exit 1
+fi
+
+if apt-get install -y --allow-unauthenticated fusiondirectory-plugin-rsyslog rsyslog-mysql mysql-server; then
+	echo "Installation of rsyslog prerequisite packages successful..."
+else
+	echo "Installation failed for rsyslog prerequisite packages.  Exiting..."
+	exit 1
+fi
+
+# Bind MySQL to an address valid on the network rather than just localhost.
+sed -i "s@^bind-address[ \t]*=[ \t]*127\.0\.0\.1@bind-address = `hostname --fqdn`@" /etc/mysql/my.cnf
+
+echo ""
+echo "IMPORTANT!!!"
+echo "Fusion Directory will attempt to access the rsyslog database using your hosts"
+echo "name, so you will need to execute the following to allow access:"
+echo ""
+echo "mysql --user=root --password=<mysql-root-password> -e \"grant SELECT,INSERT,UPDATE,DELETE,CREATE,DROP on Syslog.* to 'rsyslog'@'<hostname>' identified by '<rsyslog-password>';\" Syslog"
+echo ""
+echo "You must also add a 'Logging' service to your server inside Fusion Directory."
+echo "Any other host that needs to log data to rsyslog must also get mysql access."
+echo "You can use the same method as aboove using the required hostname, and"
+echo "to allow any host (insecure) you can use the '%' host wildcard."
+echo "Make these changes, then hit <enter> once done..."
+
+/etc/init.d/mysql restart
+/etc/init.d/rsyslog restart

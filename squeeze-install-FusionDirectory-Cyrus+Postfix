@@ -1,0 +1,627 @@
+#!/bin/bash
+# Shell script to install Cyrus IMAP & Postfix authing LDAP
+# FIXME: This script really needs a broad overview of what's going on, but
+# it has been an effort just to get things working right.  Phew!
+# Also the documentation is a bit muddled and not entirely correct at this
+# time.  Oh well.
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# FIXME: prerequisite scripts (we should test these have run :
+# squeeze-install-FusionDirectory
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory script before this one."
+  echo "Fusion Directory must be installed and configured before we can"
+  echo "continue..."
+  exit 1
+fi
+
+echo "Downloading package lists...  This may take a while..."
+if apt-get -qq update; then
+        echo "Success!"
+else
+        echo "Failure to download package information.  Exiting..."
+        exit 1
+fi
+
+# We must install the required software.
+
+echo "First we install postfix and some prerequisite packages...  We set debians"
+echo "configuration to be noninteractive so we aren't asked questions twice when"
+echo "we reconfigure postfix later."
+DEBCONF_FRONTEND="noninteractive"
+if apt-get -y --allow-unauthenticated install subversion libjson-perl postfix postfix-ldap fusiondirectory-plugin-mail; then
+	echo "Installation successful..."
+	unset DEBCONF_FRONTEND
+else
+	echo "Installation failed.  Exiting..."
+	unset DEBCONF_FRONTEND
+	exit 1
+fi
+
+# FIXME: Perhaps I should prevent postfix from being configured twice.
+# This was done to get some of the lower priority options configured.
+# When reconfiguring Postfix :
+# We may also need to modify the "relayhost" option to your ISPs mail relay
+# if this is required, and change the "mynetworks" parameter to allow at
+# least localhost (ie. 127.0.0.0/8), and perhaps your local network
+# (eg. 192.168.1.0/24).
+
+echo "About to reconfigure Postfix."
+echo ""
+echo "*** IMPORTANT! - PLEASE READ *** :  Don't use"
+echo "Procmail for local delivery - Cyrus will be used instead."
+echo "Also, if this is your main mail server you should add your domain name"
+echo "as one of your 'Destinations'."
+echo "<Hit enter to continue...>"
+read DUMMY_INPUT
+if dpkg-reconfigure postfix; then
+	echo "Postfix reconfigured..."
+else
+	echo "Postfix failed to be reconfigured.  Exiting..."
+	exit 1
+fi
+
+LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
+LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '{ print $2 }'`
+echo "Base DN extracted from LDAP (cn=config): "$LDAP_BASE_DN
+LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
+echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+
+## ****** THIS IS WHERE GOSA-SI INSTALLATION WAS CUT FROM THIS SCRIPT ******
+##
+## This part of the script was refactored into another script as other services
+## depend on gosa-si.
+
+echo "Installing Cyrus IMAP..."
+if apt-get -y install cyrus-imapd-2.2 sasl2-bin libsasl2-modules-ldap; then
+# ...the following packages will be required if we enable Kerberos.
+#libsasl2-modules-gssapi-heimdal - GSSAPI plugin
+#libsasl2-modules-gssapi-mit
+## perhaps this one???
+#libsasl2-modules-ldap - ldap auth(???)
+	echo "Installation successful..."
+else
+	echo "Installation failed.  Exiting..."
+	exit 1
+fi
+
+# We configure Postfix so it uses LDAP to look up email aliases.
+sed -i 's@alias_maps.*$@alias_maps = hash:/etc/aliases,ldap:/etc/postfix/ldap-aliases.cf@' /etc/postfix/main.cf
+
+# For some reason postfix-ldap doesn't create the device files postfix needs
+# in postfix's chroot jail.  These random-number-generating dev files are
+# needed when connection to a TLS-encrypted LDAP server.
+# FIXME: Is this really required?  Things work without doing the step below
+# so perhaps this isn't required either?  Is the chroot jail even working?
+mkdir /var/spool/postfix/dev
+cp -a /dev/random /var/spool/postfix/dev
+cp -a /dev/urandom /var/spool/postfix/dev
+
+# FIXME: This stuff is experimenting with certificates because I had issues.
+# It wasn't certs, but this stuff may yet be required eg. for smtp TLS
+# ln -s /etc/ssl/certs/ssl-cert-snakeoil.pem /var/spool/postfix/etc/ssl/certs/
+# ln -s /etc/ssl/certs/ssl-cert-local-ca.pem /var/spool/postfix/etc/ssl/certs/
+# mkdir /var/spool/postfix/etc/ssl/private
+# chown root.ssl-cert /var/spool/postfix/etc/ssl/private
+# chmod 710 /var/spool/postfix/etc/ssl/private
+# ln -s /etc/ssl/private/local-ca.key /var/spool/postfix/etc/ssl/private
+
+# The LDAP connection details for looking up email aliases are put into the
+# /etc/postfix/ldap-aliases.cf file.
+echo "server_host = ldaps://localhost" > /etc/postfix/ldap-aliases.cf
+echo "server_port = 636" >> /etc/postfix/ldap-aliases.cf
+echo "version = 3" >> /etc/postfix/ldap-aliases.cf
+echo "start_tls = no" >> /etc/postfix/ldap-aliases.cf
+echo "search_base = "$LDAP_BASE_DN >> /etc/postfix/ldap-aliases.cf
+echo "query_filter =  (&(objectClass=gosaMailAccount)(|(mail=%s)(gosaMailAlternateAddress=%s)))" >> /etc/postfix/ldap-aliases.cf
+echo "result_attribute=mail" >> /etc/postfix/ldap-aliases.cf
+
+# FIXME: Put this stuff in the config file (commented out) so it can be enabled easily
+# If ever we require certs we need to put the following into our config
+# tls_require_cert = on
+#echo "tls_cert_file: /etc/ssl/certs/ssl-cert-snakeoil.pem" >> /etc/postfix/ldap-aliases.cf
+#echo "tls_key_file: /etc/ssl/private/ssl-cert-snakeoil.key" >> /etc/postfix/ldap-aliases.cf
+#echo "tls_ca_cert_file: /etc/ssl/certs/ssl-cert-local-ca.pem" >> /etc/postfix/ldap-aliases.cf
+
+echo "Created and populated /etc/postfix/ldap-aliases.cf"
+# The query_filter above will try to match incoming mail to email addresses
+# associated with users (ie. primary or alternate addresses in the Fusion
+# Directory GUI - which are stored as the "mail" or "gosaMailAlternateAddress"
+# attributes in LDAP).  In Fusion Directory these users must have email
+# attributes enabled in the "mail" tab. ie. in LDAP only users belonging to
+# the gosaMailAccount objectClass will have email addresses matched.
+#
+# To test if the /etc/postfix/ldap-aliases.cf file is working correctly use :
+# postmap -q <email address> ldap:/etc/postfix/ldap-aliases.cf
+# If the email address is configured for an account it will be printed to the
+# commandline, otherwise it will produce no output.  If there's an error with
+# connecting to LDAP there will be an error produced.
+# Also the cyrus-clients-2.2 package (which contains imtest) is useful.
+# eg. imtest -u user -a user -p 993 -s localhost
+# where -a = authentication username, -u = authorisation username,
+# -p = port, -s = connect using ssl 
+# If authentication works fine, but there are other problems cyradm can help
+# (found in the cyrus-admin-2.2 package).
+# cyradm --user <admin username> --server localhost
+
+# Configure Postfix to deliver mail to Cyrus via a unix socket.
+if grep mailbox_transport=lmtp:unix:/var/run/cyrus/socket/lmtp /etc/postfix/main.cf; then
+	echo "/etc/postfix/main.cf already configured"
+else
+	echo "/etc/postfix/main.cf unconfigured.  Configuring..."
+	if echo "mailbox_transport=lmtp:unix:/var/run/cyrus/socket/lmtp" >> /etc/postfix/main.cf; then
+		echo "Finished configuring postfix->cyrus unix socket delivery!"
+	else
+		echo "Failed configuring postfix->cyrus unix socket delivery.  Exiting..."
+		exit 1
+	fi
+fi
+
+# Postfix must have permission to deliver mail to Cyrus' unix socket, so we
+# arrange this by creating a new group, adding the postfix user to it, and 
+# setting appropriate group permissions on the cyrus socket directory.
+# Notice the use of the dpkg-statoverride tool - this will stop permissions
+# from reverting if/when the Cyrus packages are updated.
+addgroup lmtp
+adduser postfix lmtp
+dpkg-statoverride --force --update --add cyrus lmtp 750 /var/run/cyrus/socket
+
+# We make a change to the postfix config...  then load it into postfix
+# The chroot flag on the lmtp entry in /etc/postfix/master.cf is changed to "n"
+# ie. we don't run Postfix chrooted.  Is this is a security risk?  Should we do
+# this differently???
+sed -i 's@lmtp[ /t]*unix.*$@lmtp      unix  -       -       n       -       -       lmtp@' /etc/postfix/master.cf
+/usr/sbin/postfix reload
+# To debug Postfix - append a "-v" to "lmtp" in the above command.  This makes
+# the logging output more verbose.
+#
+# Alternatively, to debug the communication Postfix has with one host, you can 
+# specify the debug_peer_list option in main.cf .  eg. :
+#
+#    /etc/postfix/main.cf:
+#    	debug_peer_list = 127.0.0.1
+
+# For more Postfix debugging tips go to : http://www.postfix.org/DEBUG_README.html
+
+# Is there any extra step required to support virtual domains /w postfix????
+# If so, DOCUMENT!!!!!!!!!
+#--- Postfix (main.cf) config options found online ----
+# virtualsource_server_host = 127.0.0.1
+# virtualsource_server_port = 389
+# virtualsource_bind = no
+# virtualsource_timeout = 5
+# virtualsource_search_base = dc=gonicus,dc=de
+# virtualsource_query_filter = \ (&(|(mail=%s)(gosaMailAlternateAddress=%s))
+#      (objectClass=gosaAccount))
+# virtualsource_result_attribute = uid,gosaMailForwardingAddress
+# virtualsource_lookup_wildcards = no
+# virtual_maps = ldap:virtualsource
+#-------------------------------------------------------
+
+# Fusion Directory has a number of plugins for dealing with different email
+# systems.  The basic method simply stores email related metadata in LDAP.
+# The Cyrus mailmethod adds the ability for Fusion Directory to edit sieve
+# scripts and to create Cyrus mailboxes.
+
+# To enable the cyrus mail method :
+#
+# <location 
+#    ...
+#    mailMethod="Cyrus"
+#
+# in /etc/gosa/gosa.conf
+
+# Unfortunately the mailbox creation doesn't seem
+# to capable of populating the mailboxes it creates with IMAP folders...  and
+# in my case I need this feature - I use groupware called SOGo which requires
+# certain folders to exist in IMAP folders. 
+#
+#  I've just tested adding :
+#
+#    imap_createmailbox($this->imap_handle, $cfg["connect"]. 
+# $this->account_id.".testfolder");
+#
+#  ...in function updateMailbox (in 
+# /usr/share/gosa/plugins/personal/mail/class_mail-methods-cyrus.inc), 
+# which seems to successfully create an additonal folder called 
+# testfolder.  I'll use this to populate new mailboxes with folders I 
+# need.  I added this imap_createmailbox statement under the following line :
+#
+#  if (!imap_createmailbox($this->imap_handle, $cfg["connect"]. 
+#  $this->account_id)
+#         $this->error = imap_last_error();
+#         return(FALSE);
+#  }
+#
+#   I guess this kind of hack should be made nice, but I really don't have 
+# the knowledge or time.  Will document and move on.
+
+# For security :
+# Edit /etc/cyrus.conf and enable imaps (secure imap), and disable unencrypted
+# connections because we're going to be passing plain passwords to the server.
+# NOTE:: There is an alternative method involving an auxprop LDAP connector, but
+# this would require storing plain passwords in LDAP rather than a password hash.
+# Which is the most secure??????
+# 
+# ALSO:: in /etc/fusiondirectory/fusiondirectory.conf we may can configure which attribute to use
+# when creating a mail account if required.  There are two methods :
+# 1) mailAttribute="mail"
+#    Optional, but mandatory if we support virtual domains.  We use the "mail" LDAP attrib
+#    ie. user.herbertsmail@example.com or shared.technik@example.com.  This is the default
+# 2) mailAttribute="uid"
+#    Uses the "uid" LDAP attribute... ie. user.herbert or shared.technik
+#
+# Fusion Directory may also have trouble connecting to cyrus's sieve
+# functionality (port 2000 in Lenny or 4190 Squeeze).  On Debian
+# by default it's only available on localhost (ie. 127.0.0.1), but you might want to instead enable it on 127.0.1.1
+# because Debian resolves the local hostname to 127.0.1.1 - there is an explanation on the net somewhere as to why
+# resolving the local hostname gives this IP instead of 127.0.0.1 .  You could just as easily listen to an interface
+# (ie. a specific IP) or all interfaces.  To change from listening to 127.0.0.1 edit /etc/cyrus.conf and change :
+# sieve           cmd="timsieved" listen="localhost:sieve" prefork=0 maxchild=100
+# to either :
+# sieve           cmd="timsieved" listen="127.0.1.1:sieve" prefork=0 maxchild=100
+# (use 127.0.1.1 if cyrus/sieve is on the same machine as Fusion Directory - if
+# not, an IP accessible only from the internal network
+# could also be a secure option).
+# otherwise :
+# sieve           cmd="timsieved" listen="sieve" prefork=0 maxchild=100
+# allows connections using any IP.  
+
+# Emable Cyrus mailMethod in fusiondirectory.conf
+if ! grep  'mailMethod=' /etc/fusiondirectory/fusiondirectory.conf; then
+	sed -i 's@<location.*'\
+'@&\
+              mailMethod="Cyrus"'\
+'@' /etc/fusiondirectory/fusiondirectory.conf
+	echo "Added a mailMethod entry to fusiondirectory.conf"
+else
+	echo "A mailMethod entry is already enabled in your fusiondirectory.conf"
+fi
+
+# Configure mailAttribute in fusiondirectory.conf.
+# (This will be uid, but for virtual domain support mailAttribute should
+# become "mail"...  modify the if-statement below if virtual domain support
+# is needed).
+if ! grep 'mailAttribute=' /etc/fusiondirectory/fusiondirectory.conf; then
+	sed -i 's@<location.*'\
+'@&\
+              mailAttribute="uid"'\
+'@' /etc/fusiondirectory/fusiondirectory.conf
+	echo "Added a mailAttribute entry to fusiondirectory.conf"
+else
+	echo "A mailAttribute entry is already enabled in your fusiondirectory.conf."
+	echo "modifying..."
+
+	sed -i 's@mailAttribute=".*@mailAttribute="uid"@' /etc/fusiondirectory/fusiondirectory.conf
+fi
+# To debug Fusion Directory's interaction with email change 'debugLevel="0"'
+# to 'debugLevel="512"'.  This will cause debug info to be printed in the
+# Fusion Directory pages.
+
+
+# Make user admin a cyrus admin in imapd.conf
+# FIXME: should probably test if user "admin" already exists in admins: section
+sed -i 's@#admins@admins@' /etc/imapd.conf
+sed -i 's@^admins:.*$@& admin@' /etc/imapd.conf
+
+# FIXME: Does sieve only need to listen on the local machine?
+# FIXME: Is there a way to only allow ssl connections to sieve?
+sed -i 's@listen="localhost:sieve"@listen="127.0.1.1:sieve"@' /etc/cyrus.conf
+
+# Enable pops and imaps and disable imap and pop (in cyrus)
+# NOTE:: We can't actually disable imap until SOGo supports,
+# imaps so we leave this commented out for now.
+# sed -i 's@^\([[:space:]]*\)imap[ \t]@\1\#imap\t@' /etc/cyrus.conf
+sed -i 's@\#imaps\([[:space:]]*\)cmd="imapd -s -U 30"@'\
+'imaps\1cmd="imapd -s -U 30"@' /etc/cyrus.conf
+sed -i 's@^\([[:space:]]*\)pop3[ \t]@\1\#pop3\t@' /etc/cyrus.conf
+sed -i 's@\#pop3s\([[:space:]]*\)cmd="pop3d -s -U 30"@'\
+'pop3s\1cmd="pop3d -s -U 30"@' /etc/cyrus.conf
+
+###### END Issues with Fusion Directory and Cyrus IMAP ######
+# We don't use auxprop auth, but saslauthd for LDAP authentication (see
+# discussion above), and therefore we must also force PLAIN authentication
+# only.  For security we really should do this over an encrypted channel
+# which is what we have with LDAP over TLS.
+# I've also set the altnamespace option to "yes" so extra folders 
+# (eg. Trash, Sent, Junk etc...) appear at the same level as our INBOX folder
+# and won't show up inside it - look up the Cyrus documentation for the
+# implications of this.
+if grep "sasl_pwcheck_method: saslauthd" /etc/imapd.conf; then
+	echo "/etc/imapd.conf already configured"
+else
+	echo "/etc/imapd.conf unconfigured.  Configuring..."
+	if sed -i 's/sasl_pwcheck_method:\ auxprop/sasl_pwcheck_method:\ saslauthd/' /etc/imapd.conf; then
+		echo "Finished changing sasl_pwcheck_method."
+	else
+		echo "Failed changing sasl_pwcheck_method.  Exiting..."
+		exit 1
+	fi
+	if sed -i 's/#sasl_mech_list: PLAIN/sasl_mech_list: PLAIN/' /etc/imapd.conf; then
+		echo "Finished uncommenting sasl_mech_list!"
+	else
+		echo "Failed uncommenting sasl_mech_list.  Exiting..."
+		exit 1	
+	fi
+	if sed -i 's/altnamespace: no/altnamespace: yes/' /etc/imapd.conf; then
+		echo "Finished changing altnamespace option to yes!"
+	else
+		echo "Failed changing altnamespace option to yes.  Exiting..."
+		exit 1	
+	fi
+fi
+
+if grep ^tls_cert_file /etc/imapd.conf; then
+  echo "imapd.conf already contains certificate and key information..."
+else
+  echo "Adding certificate and key information to imapd.conf..."
+cat >> /etc/imapd.conf <<-EOF
+	tls_cert_file: /etc/ssl/certs/ssl-cert-snakeoil.pem
+	tls_key_file: /etc/ssl/private/ssl-cert-snakeoil.key
+	tls_ca_file: /etc/ssl/certs/ssl-cert-local-ca.pem
+EOF
+fi
+
+# Add the cyrus user to ssl-cert group so the Cyrus daemon can read the ssl key
+# required for enabling encryption.
+usermod -a -G ssl-cert cyrus
+
+# FIXME: Is what I say below correct???  /var/run/saslauthd/mux seems to be owned
+# by user root and group root.  The cyrus user needs to be added to the sasl
+# group for things to work though...  (END FIXME).
+# Add cyrus user to sasl group so the Cyrus daemon can access the saslauthd mux.
+usermod -a -G sasl cyrus
+
+# Also, in /etc/imapd.conf some changes would need to be made to enable virtual
+# domains...  ie.
+#virtdomains: on
+#defaultdomain: mydomain.com
+
+# We now make four changes to saslauthd configuration :
+
+# 1) Enable automatic start of saslauthd (disabled by default)
+if sed -i s/START=no/START=yes/ /etc/default/saslauthd; then
+	echo "START= value in /etc/default/saslauthd changed to 'yes'..."
+else
+	echo "Failed to modify START= value in /etc/default/saslauthd.  Exiting..."
+	exit 1
+fi
+
+# 2) Saslauthd auths directly using LDAP and not PAM
+#
+# We could authenticate using PAM or LDAP.  (What are the pros/cons?).
+# In this script we are using LDAP.
+# There is an example of how to auth via PAM in the Samba script.  Be aware
+# that the Samba script changes global PAM settings for the system and not
+# for individual services; if we were to use PAM we might only want to
+# configure PAM auth for IMAP.
+if sed -i 's/^MECHANISMS="pam"/MECHANISMS="ldap"/' /etc/default/saslauthd; then
+	echo "MECHANISMS variable in /etc/default/saslauthd changed to 'ldap'..."
+else
+	echo "Failed to modify MECHANISMS value in /etc/default/saslauthd.  Exiting..."
+	exit 1
+fi
+
+# 3) The LDAP auth method requires a configuration file, so we specify this
+echo 'PARAMS="-O /etc/saslauthd.conf"' >> /etc/default/saslauthd
+
+# 4) Create /etc/saslauthd.conf and populate with LDAP connection info :
+echo "ldap_servers:     ldaps://localhost/
+ldap_version:     3
+ldap_timeout:     10
+ldap_time_limit:  10
+ldap_bind_dn: "$LDAP_ADMIN_DN"
+ldap_password: "$LDAP_ADMIN_PW"
+ldap_scope:       sub
+ldap_search_base: "$LDAP_BASE_DN"
+ldap_auth_method: bind
+
+# We can have Cyrus accept either an email address or a username for a login id.
+# You will need to choose an appropriate ldap_filter below, and modify fusiondirectory.conf
+# to match this choice (ie. mailAttribute must be either uid or mail).
+# FIXME: The following more complicated filter allows
+#        authing as either a mail address OR a uid.  Should I use this?
+#ldap_filter: (|(mail=%u@%d)(mail=%u)(uid=%u@%d)(uid=%u))
+ldap_filter: uid=%u
+#ldap_filter: mail=%s
+
+# These files allow saslauthd to verify the certs of anyone who connects.
+#FIXME: We should eventually create separate certs for all our services.
+ldap_tls_cacert_file: /etc/ssl/certs/ssl-cert-local-ca.pem
+ldap_tls_cert: /etc/ssl/certs/ssl-cert-snakeoil.pem
+ldap_tls_key: /etc/ssl/private/ssl-cert-snakeoil.key" > /etc/saslauthd.conf
+
+/etc/init.d/saslauthd restart
+
+# To debug/test saslauthd use :
+# testsaslauthd -u <username> -p <password>
+#
+# You can also run saslauthd from the commandline with the -d option to get debug
+# information. eg :
+# /usr/sbin/saslauthd -d -a ldap -m /var/run/saslauthd
+# If while debugging you get a [reason=Unknown] in your debug output it
+# is possible your /etc/saslauthd.conf is wrong/corrupt.
+
+# Now for the anti-spam and antivirus stuff
+# First, we add the volatile debian repositories (because this is a way of using
+# the latest clamav engine).  We test for both Lenny and Squeeze :
+if grep 5.0 /etc/debian_version; then
+cat >> /etc/apt/sources.list <<- EOF
+	deb http://volatile.debian.org/debian-volatile lenny/volatile main
+	deb-src http://volatile.debian.org/debian-volatile lenny/volatile main
+EOF
+fi
+
+## Squeeze doesn't need to include the volatile repositories yet, as it hasn't
+## been released (at the time this was written).
+#if grep squeeze /etc/debian_verion; then
+#cat >> /etc/apt/sources.list <<- EOF
+#	deb http://volatile.debian.org/debian-volatile squeeze/volatile main
+#	deb-src http://volatile.debian.org/debian-volatile squeeze/volatile main
+#EOF
+#fi
+
+# Do we need anything like the above for Ubuntu?
+
+# Now we install required software.
+apt-get -y install amavisd-new spamassassin clamav clamav-daemon zoo unzip bzip2 libnet-ph-perl libnet-snpp-perl libnet-telnet-perl nomarch lzop pyzor sa-learn-cyrus cabextract pax ripole unrar-free
+
+# Next we create two services specifically for passing messages to and from
+# amavis.  The first specifies the service we push out mail to be filtered,
+# and the second specifies where mail gets re-injected after being filtered.
+cat >> /etc/postfix/master.cf <<- EOF
+	amavisfeed unix    -       -       n       -       2     smtp
+	     -o smtp_data_done_timeout=1200
+	     -o smtp_send_xforward_command=yes
+	     -o smtp_tls_note_starttls_offer=no
+	
+	127.0.0.1:10025 inet n    -       n       -       -     smtpd
+	     -o content_filter=
+	     -o smtpd_delay_reject=no
+	     -o smtpd_client_restrictions=permit_mynetworks,reject
+	     -o smtpd_helo_restrictions=
+	     -o smtpd_sender_restrictions=
+	     -o smtpd_recipient_restrictions=permit_mynetworks,reject
+	     -o smtpd_data_restrictions=reject_unauth_pipelining
+	     -o smtpd_end_of_data_restrictions=
+	     -o smtpd_restriction_classes=
+	     -o mynetworks=127.0.0.0/8
+	     -o smtpd_error_sleep_time=0
+	     -o smtpd_soft_error_limit=1001
+	     -o smtpd_hard_error_limit=1000
+	     -o smtpd_client_connection_count_limit=0
+	     -o smtpd_client_connection_rate_limit=0
+	     -o receive_override_options=no_header_body_checks,no_unknown_recipient_checks,no_milters
+	     -o local_header_rewrite_clients=
+	     -o smtpd_milters=
+	     -o local_recipient_maps=
+	     -o relay_recipient_maps=
+EOF
+
+# We specify amavisfeed (specified above) as our global "content_filter"
+# ie. the filter for all incoming AND outgoing email).  Traffic will go to
+# port 10024 which is the port that amavis listens to by default.
+cat >> /etc/postfix/main.cf <<- EOF
+	content_filter=amavisfeed:[127.0.0.1]:10024
+EOF
+
+# To test the amavis and postfix daemons we can see if both 10024
+# and 10025 ports are active by executing :
+# netstat -tap
+# This of course only works after we restart the daemons (later this script).
+
+# The following enables scanning rar encoded emails for spam and viruses...
+# unlikely, but you never know.  (We've already installed unrar-free above).
+# There are other archive formats we don't support (eg. lha because it's
+# nonfree).  Check the /var/log/mail.log file after restarting amavis for
+# a report of what is/isn't supported.
+sed -i "s@"^"\$unrar".*$"@\$unrar      = ['rar', 'unrar', 'unrar\-free']\;@" /etc/amavis/conf.d/01-debian
+
+# Enable spamassassin
+sed -i s@ENABLED=0@ENABLED=1@ /etc/default/spamassassin
+
+# Automatically discover and configure the pyzor server
+sudo -H -u amavis pyzor discover
+
+#### I suspect this stuff is obsolete and isn't required:
+## Enable the pyzor, razor and bayes filter plugins in spamassassin
+#cat >> /etc/spamassassin/local.cf <<- EOF
+#	#pyzor
+#	use_pyzor 1
+#	pyzor_path /usr/bin/pyzor
+#	pyzor_add_header 1
+#	
+#	#bayes
+#	bayes_path /var/lib/amavis/.spamassassin
+#	use_bayes 1
+#	use_bayes_rules 1
+#	bayes_auto_learn 1
+#EOF
+
+# Why do we add the clamav user to the amavis group??
+adduser clamav amavis
+
+# By default amavis will quarantine all spam and virus emails in
+# /var/lib/amavis/virusmails .  This is specified in
+# /etc/amavis/conf.d/20-debian_defaults by :
+# $QUARANTINEDIR = "$MYHOME/virusmails";
+# Quarantined messages are released with amavisd-release.
+# Perhaps some more docs need to go here in future eg. how to automatically
+# purge quarantined emails by date with eg. find, how to search the mail
+# logs for email from one person to another at a certain date (to feed to
+# amavisd-release) etc...
+
+# NOTE:: We've installed the sa-learn-cyrus package which is an addon to
+#        spamassassin and allows users to specify spam and ham emails for
+#        the spam filter to learn.  I've installed this package in this script.
+#        By default these emails should be placed in the Learn.Spam and
+#        Learn.Ham folders respectively.  These folders should be created
+#        in a users folder if they want this functionality.
+
+# Strings for spam/antivirus tests in emails (these strings must appear
+# at the very start of your email).
+# Virus :
+# X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*
+# Spam :
+# XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X
+# ...or else use the mails in /usr/share/doc/spamassassin/examples/ .
+
+# To specifically test if the pyzor plugin is working in spamassassin type
+# the following :
+# sudo -H -u amavis cat /usr/share/doc/spamassassin/examples/sample-spam.txt | spamassassin -t -D pyzor
+# ...substitute "razor2" for "pyzor" to test the razor2 plugin.
+
+# For environments that firewall outgoing connections by default :
+# Razor2 : Outgoing TCP port 2703
+# Pyzor  : Outgoing TCP port 24441
+
+# Update Fusion Directory's interface...
+update-fusiondirectory
+
+# Restart all relevent daemons
+# (probably all don't need a restart)
+/etc/init.d/clamav-daemon restart
+/etc/init.d/clamav-freshclam restart
+/etc/init.d/spamassassin restart
+/etc/init.d/amavis restart
+
+/etc/init.d/saslauthd restart
+/etc/init.d/postfix restart
+/etc/init.d/cyrus2.2 restart
+/etc/init.d/apache2 restart
+
+echo "Successfully finished configuration..."
+echo ""
+echo "To activate Cyrus in Fusion Directory create an IMAP/POP3 service in your"
+echo "server-object and fill in the following values :"
+echo "Server identifier - "`hostname --fqdn`
+echo "Connect URL - {"`hostname --fqdn`":993/ssl/novalidate-cert}"
+echo "Admin user - admin"
+echo "Password - <the password you entered during setup>"
+echo "Sieve connect URL - {127.0.1.1:4190/tls}"
+
+# FIXME: We must change the port above from 2000 to 4190 so this will work in
+#        Squeeze.  Test to make sure this works correctly.
+# The IANA port allocated for ManageSieve is 4190/tcp, and the old port used
+# by timsieved and other managesieve software in many distros (2000/tcp) is
+# allocated for Cisco SCCP usage, according to the IANA registry[1].
+# FIXME: Why do we need to add a Postfix service into our Fusion Directory
+#        configuration?  Inform the user here.
+#
+# Starting with the version 4.38 of the Debian "netbase" package, the "sieve"
+# service will be moved from port 2000 to port 4190 in the /etc/services file. 
+
+echo "NOTE:: The 127.0.1.1 is required in the sieve URL because this script"
+echo "makes sieve listen only on this IP by default.  See cyrus.conf"
+
+# FIXME: BIG PROBLEM!!!  Need to set an ACL so that a user typing ldapsearch -x won't
+# get the admin password in plain text. From the IRC channel eg. :
+# access to attrs=goImapPassword        by dn.regex="uid=[^/]+/admin\+(realm=GONICUS.LOCAL)?" write        by * none
+# <bilbo-the-hobbit> i you look in the contrib dir in gosa you will find a slapd.conf exmaple with all the basic acl 
+
+# To troubleshoot mail delivery problems examine /var/log/mail.log
+

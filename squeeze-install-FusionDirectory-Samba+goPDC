@@ -1,0 +1,376 @@
+#!/bin/bash
+# Script to install and configure Samba /w LDAP support for use with Fusion
+# Directory.
+# FIXME: We need an overview on what's going on in this script here.
+#
+# This script needs to run as root
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# We need to have already installed Fusion Directory.
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory script before this one."
+  echo "Fusion Directory must be installed and configured before we can"
+  echo "continue..."
+  exit 1
+fi
+
+#echo "You will need to have a few pieces of information before you start :"
+#echo "1) The Domain Name you have chosen
+#echo "2) Server certificate validation (NSLCD) - This works as 'never', but should"
+#echo "   also work at any other value (untested)."
+#echo "2) Your LDAP servers URI - because the Samba server is on the same machine"
+#echo "   ldaps:// can be used (ie. the default)"
+#echo "3) The LDAP search base (which can also be left at its default value)" 
+
+# First we install the plugin that allows Fusion Directory to manage Samba users
+apt-get -y --allow-unauthenticated install fusiondirectory-plugin-samba
+
+# We also install the following software : Samba, gopdc, libnss-ldapd
+# and libpam-ldap.
+# 
+# Why gopdc, libnss-ldapd and libpam-ldap?  In short, to make Samba and
+# the underlying Linux system LDAP-aware.
+#
+# Samba has built in LDAP authentication support, but for changing LDAP
+# user/group data it relies on user-supplied scripts.  This is because
+# every site is different and Samba can't edit users/groups in a generic way.
+# We could write these scripts ourselves, but there are two pre-written script
+# collections available (GOpdc or smbldap-tools).  I've chosen to use GOpdc.
+#
+# Linux must also be made LDAP-aware because Samba does much of its
+# work at the Linux level (eg. Samba user and machine accounts are represented
+# as Linux accounts at the OS level, and windows "file shares" are also stored
+# on the local Linux filesystem).
+#
+# There are two packages required for Linux LDAP support :
+#
+# 1) libnss-ldapd is an LDAP-enabled "Name Service Switch" module.  The Name
+# Service Switch system (NSS) gives Linux the ability to query alternate
+# sources for many kinds of configuration data usually stored in /etc flat
+# files (eg. passwd, groups, hosts etc...).
+#
+# 2) libpam-ldap is an LDAP-enabled "Pluggable Authentication Module".  The
+# Plugable Authentication Modules system (PAM) allows alternate methods of
+# authenticating Linux users (other than the standard Unix /etc/passwd).
+#
+# A note about plugin versions ::  There are two NSS ldap modules available in
+#                                  Debian Lenny/Squeeze :
+# - libnss-ldap  (the original version that has some issues eg. freeze during
+#                 reboot if an LDAP server is not availabe)
+# - libnss-ldapd (a fork of libnss-ldap that fixes the above issue as well as
+#                 making other changes)
+# I've chosen to install the forked version in this script.
+#
+# Also note :: When configuring libnss-ldapd it will present a list of services
+#              to enable LDAP lookups for.  Enable for passwd, shadow and
+#              group - these settings are saved to your nssswitch.conf file.
+
+#FIXME:Is it really a problem for local root to be a database admin below???
+echo ""
+echo "1) When enabling LDAP service lookup select 'passwd', 'shadow' and 'group'."
+echo "2) The LDAP URI should be ldaps:// (and NOT ldapi:// which is the default"
+echo "3) When configuring libpam-ldap, answer 'No' to 'Allow LDAP admin account"
+echo "to behave like a local root'"
+echo "...for everything else default values should be OK."
+echo "<Hit enter to continue>"
+read my_dummy_value
+
+if apt-get -y install samba libnss-ldapd libpam-ldap; then
+	echo "Installation of samba, libnss-ldapd and"
+	echo "libpam-ldap successful..."
+else
+	echo "Installation of samba, libnss-ldapd and"
+	echo "libpam-ldap failed.  Exiting..."
+	exit 1
+fi
+
+##############################################################################
+#### The libnss-ldapd package is configured automatically during installation.
+#### The following commented-out section is how to do this manually.  I've
+#### left it here in case it's useful to anyone.
+## To use the libnss-ldapd NSS module we must add the "ldap" keyword to our
+## Name Service Switch configuration (in /etc/nsswitch.conf).
+##
+## Notice that we still also incorporate standard search methods ie. :
+## "files" - look up the required info in the /etc flat files
+## "dns"   - look up the required info using DNS
+#if mv /etc/nsswitch.conf /etc/nsswitch.conf.backup; then
+#	echo "Copied old nsswitch.conf file to backup..."
+#else
+#	echo "Failed to copy old nsswitch.conf file to backup.  Exiting..."
+#	exit 1
+#fi
+## Only passwd, group, and shadow are essential for Samba to work correctly.
+#cat > /etc/nsswitch.conf -<<EOF
+#	# the following contain normal unix user and group information
+#	passwd:         files ldap
+#	group:          files ldap
+#	shadow:         files ldap
+#	
+#	# hostname lookups through ldap before dns should work now
+#	hosts:          files dns
+#	networks:       files
+#	
+#	# normal flat-file definitions
+#	protocols:      files
+#	services:       files
+#	ethers:         files
+#	rpc:            files
+#	netgroup:       ldap
+#	
+#	# whether alias lookups really use NSS depends on the mail server
+#	aliases:        files ldap
+#EOF
+#
+#echo "nsswitch support for LDAP added...  local Unix support for LDAP enabled."
+###################################################################################
+
+# Now we configure Linux's PAM subsystem to use the libpam-ldap module we
+# installed earlier.  UPDATE:: this isn't required in Debian Squeeze, so we
+# first check if pam-auth-update (the new pam config tool) is mentioned
+# in the config files.  If it's mentioned we don't need to do any pam config.
+
+if grep pam-auth-update /etc/pam.d/common-account; then
+  echo "This system is a pam-auth-update managed system.  No need for us to"
+  echo "modify the pam configuration manually..."
+else
+cp /etc/pam.d/common-account /etc/pam.d/common-account.backup
+# Write the following lines to /etc/pam.d/common-account
+cat > /etc/pam.d/common-account -<<EOF
+	account sufficient	pam_unix.so
+	account required	pam_ldap.so
+	
+	#Enable if using Kerberos:
+	#account required	pam_krb5.so
+EOF
+
+cp /etc/pam.d/common-auth /etc/pam.d/common-auth.backup
+# Write the following lines to /etc/pam.d/common-auth
+cat > /etc/pam.d/common-auth -<<EOF
+	# Disable the three lines if using Kerberos:
+	auth [success=1 default=ignore] pam_unix.so nullok_secure
+	auth required pam_ldap.so use_first_pass
+	auth required pam_permit.so
+	
+	# Enable the three lines if using Kerberos:
+	#auth    sufficient        pam_unix.so nullok_secure
+	#auth    sufficient        pam_krb5.so use_first_pass
+	#auth    required          pam_deny.so
+EOF
+
+cp /etc/pam.d/common-session /etc/pam.d/common-session.backup
+# Write the following lines to /etc/pam.d/common-session
+cat > /etc/pam.d/common-session -<<EOF
+	session required        pam_unix.so
+	session required        pam_mkhomedir.so skel=/etc/skel/ umask=0022
+	
+	# Enable if using Kerberos:
+	#session  optional  pam_krb5.so minimum_uid=1000
+EOF
+
+cp /etc/pam.d/common-password /etc/pam.d/common-password.backup
+# Write the following lines to /etc/pam.d/common-password
+cat > /etc/pam.d/common-password -<<EOF
+	password   sufficient pam_ldap.so ignore_unknown_user
+	password   required   pam_unix.so nullok obscure md5
+EOF
+fi
+
+## Enabling Samba LDAP support :
+## I find using SWAT to edit the Samba configuration much easier than doing
+## so by hand, although I don't install SWAT automatically.  Perhaps we could
+## ask the user in future?????
+## To install SWAT
+# apt-get install swat
+## The SWAT install makes changes to /etc/inetd.conf . Restart inetd for
+## changes to take effect
+# /etc/init.d/openbsd-inetd restart
+## SWAT can now be accessed at http://localhost:901 .  You'll want to edit
+## the global section and enable "advanced" settings to see the following
+## options.
+
+# Make required changes in /etc/samba/smb.conf to support LDAP, to become
+# a domain master, use the gopdc scripts to create/delete machine
+# accounts etc...
+
+# We first use some script magic to load LDAP connection details
+# configured in fusiondirectory.conf and cn=config into some shell variables...
+LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
+
+# FIXME: Replace the following with a cn=config version...  when everified delete this...
+#LDAP_BASE_DN=`grep '^suffix ' /etc/ldap/slapd.conf | awk '/ */{ print $2 }' | sed 's/"//g'`
+#echo "Base DN extracted from slapd.conf : "$LDAP_BASE_DN
+LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '{ print $2 }'`
+echo "Base DN extracted from LDAP (cn=config): "$LDAP_BASE_DN
+
+# ...we then search for and replace the passdb backend config option, and also paste
+# in a lot of other config information (for LDAP, GOpdc etc...).  Notice we use the
+# LDAP connection details extracted above (ie. $LDAP_BASE_DN and $LDAP_ADMIN_DN)  
+if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://localhost\
+   domain logons = yes\
+   preferred master = yes\
+   ldap ssl = no\
+   ldap suffix = '$LDAP_BASE_DN'\
+   ldap admin dn = '$LDAP_ADMIN_DN'\
+   ldap user suffix = ou=people\
+   ldap group suffix = ou=groups\
+   ldap machine suffix = ou=systems\
+   ldap passwd sync = Yes\
+   add user script = /usr/share/gopdc/gopdc -adduser "%u"\
+   add machine script = /usr/share/gopdc/gopdc -addmachine "%u"\
+   add group script = /usr/share/gopdc/gopdc -addgroup "%g"\
+   add user to group script = /usr/share/gopdc/gopdc -usr2grp "%u" "%g"\
+   delete user script = /usr/share/gopdc/gopdc -deluser "%u"\
+   delete group script = /usr/share/gopdc/gopdc -delgroup "%g"\
+   delete user from group script = /usr/share/gopdc/gopdc -usrFgrp "%u" "%g"\
+   #trouble with server not becoming a domain master?  This helps\
+   os level = 65\
+@' /etc/samba/smb.conf; then
+	echo "Modified smb.conf successfully..."
+else
+	echo "Failed modifying smb.conf.  Exiting..."
+	exit 1
+fi
+# It's very strange that "ldap ssl = no" is required to get ssl/tls over ldaps
+# working.  It seems quite counter intuitive to me, and wasted lots of time.
+# NOTE: This isn't yet tested in Lenny.  Does it work?
+
+#### FIXME:Should we set this stuff up in the script?  I haven't enabled this yet
+#### I'm leaving it here to inform admins how to enable these things.  Perhaps
+#### we could ask the user if these should be enabled or not?????
+##
+## To set up a user home directory
+# logon drive = h:
+# logon home = \\%N\%u
+#
+## And the netlogon share for logon scripts (is this correct?)
+# [netlogon]
+# ; comment = Network Logon Service
+# path = <path to logon>
+# guest ok = yes
+# read only = yes
+# share modes = no
+
+
+# To install GOpdc :
+# OK, it's not good for security to have build tools installed etc...
+# Strictly this should either be done on another machine, or it should be
+# done in a safer way.
+apt-get -y install subversion debhelper fakeroot
+cd /usr/src
+svn co https://oss.gonicus.de/repositories/gopdc/trunk/ gopdc
+cd /usr/src/gopdc
+dpkg-buildpackage -us -uc -rfakeroot
+cd /usr/src
+dpkg -i gopdc*.deb
+ 
+# Must edit /etc/gopdc.xml (GOpdc's configuration file)
+# Defaults should be OK except for smb_domain...  and LDAP settings.  Enable TLS
+# setting if the LDAP server isn't on the local machine.  make mach_own_grp true
+# Also set the post_exec_* settings :
+
+DOMAIN_NAME=`grep 'workgroup =' /etc/samba/smb.conf | awk -F'=' '{ print $2 }'|sed 's/ //g'`
+echo "Domain Name extracted from /etc/samba/smb.conf"
+LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
+echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+
+sed -i 's@smb_domain" value="GODOM@smb_domain" value="'$DOMAIN_NAME'@' /etc/gopdc.xml
+sed -i 's@ldap_base" value="dc=gonicus,dc=de@ldap_base" value="'$LDAP_BASE_DN'@' /etc/gopdc.xml
+sed -i 's@ldap_binddn" value="cn=ldapadmin,dc=gonicus,dc=de@ldap_binddn" value="'$LDAP_ADMIN_DN'@' /etc/gopdc.xml
+sed -i 's@ldap_pass" value="tester@ldap_pass" value="'$LDAP_ADMIN_PW'@' /etc/gopdc.xml
+sed -i 's@mach_own_grp" value="false@mach_own_grp" value="true@' /etc/gopdc.xml
+sed -i 's@ldap_port" value="389@ldap_port" value="636@' /etc/gopdc.xml
+sed -i 's@ldap_host" value="localhost@ldap_host" value="ldaps://localhost@' /etc/gopdc.xml
+
+# The nscd daemon which caches name service data (ie. passwd/shadow/group)
+# can cause problems when this data changes quickly eg. adding users, machines etc...
+# One of the goPDC authors suggested using a "post_create" script to clear this
+# data after Samba makes such changes (eg. from the "add machine script"),
+# and I THINK the following is what he meant.
+# NOTE: This didn't seem to work for me in Lenny.  I worked around
+# the problem by putting my "post_create" scripts into the smb.conf file
+# - I used semicolons to put two scripts where one should go in /etc/samba/smb.conf .
+sed -i 's@post_exec_user" value="/bin/true@post_exec_user" value="/etc/init.d/nscd restart@' /etc/gopdc.xml
+sed -i 's@post_exec_mach" value="/bin/true@post_exec_mach" value="/etc/init.d/nscd restart@' /etc/gopdc.xml
+sed -i 's@post_exec_grup" value="/bin/true@post_exec_grup" value="/etc/init.d/nscd restart@' /etc/gopdc.xml
+
+## Remove any cached samba data
+rm /var/lib/samba/*.tdb
+# rm /var/lib/samba/*.dat # probably not required
+# rm  -R /var/log/samba/* # probably not required
+# rm /var/lib/samba/*.ldb # (?????? is this required)
+
+# Set the password (required after deleting the tdb files).
+echo ""
+echo "USER INPUT REQUIRED!!!"
+echo "We have deleted Samba's tdb cache...  reinitialising required your admin pw."
+smbpasswd -W
+# Once we restart Samba it will autocreate its SID in LDAP
+/etc/init.d/samba restart
+
+## We can allow Fusion Directory to deal with groups /w spaces in them eg.
+## "domain users" and "domain admins".  To enable this edit
+## /etc/fusiondirectory/fusiondirectory.conf and change :
+## strictNamingRules = "true"
+## to
+## strictNamingRules = "false"
+## I believe this is required(?) for enabling GOpdc functionality... is this true?
+## What are the repercussions of doing this?!?!?!?
+## And you must edit sambaSID to equal your local SID (ie. net getdomainsid)
+sed -i 's@strictNamingRules="true@strictNamingRules="false@' /etc/fusiondirectory/fusiondirectory.conf
+DOMAIN_SID=`net getdomainsid | grep domain - | awk -F':' '{print $2}' | sed 's/ //g'`
+echo "Extracted Domain SID from LDAP..."
+# FIXME: Putting the sambaversion explicitly into fusiondirectory.conf hopefully won't be
+#        required after v2.6.6 of GOsa.  Erase sambaversion (but not sambaSID)
+#        from this command when GOsa/Fusion Directory does this automatically
+#        like it should.
+#	 NOTE: The final double-quote is not part of the sed statement below.
+sed -i 's@sambaSID="0-815-4711@sambaSID="'$DOMAIN_SID'"\
+	      sambaversion="3@' /etc/fusiondirectory/fusiondirectory.conf
+
+####  This is an alternate method for adding a SID to LDAP.  Preferred is the
+####  method above, but perhaps this would be useful when populating an LDAP
+####  tree without a Samba server.
+## First we find our domain SID 
+# net getdomainsid
+## Then we enter this SID into LDAP
+# /usr/share/gopdc/populate --addsid
+
+# There is a bug with this populate command, and it doesn't create the required groups
+# (at least under Debian Lenny)...  so we run the checkgroups command afterward to fix it.
+/usr/share/gopdc/populate --populate
+/usr/share/gopdc/populate --checkgroups
+
+# Run this to update the Fusion Directory interface to include Samba options.
+update-fusiondirectory
+
+echo ""
+echo "!!! YOU ARE NOT FINISHED YET !!!"
+echo "For correct PDC functionality you must : "
+echo "1) In Fusion Directory edit the Samba groups (ie. 'domain admins',"
+echo "'domain guests','domain machines' and 'domain users') so they all have"
+echo "check-marks beside the domain attribute"
+echo "2) The user that will be your Samba domain admin must have both 'Unix'"
+echo "and 'Samba' attributes enabled in Fusion Directory, have 'domain admins'"
+echo "as its primary group, and be a member of 'domain uses'"
+# Is there any way to automate the above ie. samba group stuff and domain admin???
+
+## NOTES ABOUT TRADEOFFS OF DIFFERENT WAYS OF ACHIEVING THINGS :
+## There's a new alternative to GOpdc ie. in smb.conf :
+## ldapsam:editposix = yes
+## ldapsam:trusted = yes
+## (there are other settings required.  See the manpage of smb.conf)
+## ...and at the command line...
+## net sam provision
+## ...to populate LDAP /w the required groups.
+## Apparently GOpdc has the advantage of being Fusion Directory aware (what
+## does this mean exactly?), but there's a performance penalty.
+##
+## Also, there are issues regarding winbind vs nscd.  Check security implications
+## http://www.samba.org/samba/docs/man/Samba-HOWTO-Collection/winbind.html#id2653735
+## Winbind of course will not recognise users which are POSIX but not Samba
+## users...  this may not fulfil requirements in some instances.
