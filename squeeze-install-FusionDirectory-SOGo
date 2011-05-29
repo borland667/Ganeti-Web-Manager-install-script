@@ -128,6 +128,8 @@ sudo -u sogo defaults write sogod WOPort 20000
 sudo -u sogo defaults write sogod SOGoMailingMechanism smtp
 sudo -u sogo defaults write sogod SOGoSMTPServer localhost
 sudo -u sogo defaults write sogod SOGoIMAPServer localhost
+sudo -u sogo defaults write sogod OCSSessionsFolderURL postgresql://sogo:sogo@localhost:5432/sogo/sogo_sessions_folder
+
 
 sudo -u sogo defaults write sogod SOGoAuthenticationMethod LDAP
 sudo -u sogo defaults write sogod SOGoUserSources '({CNFieldName = cn;
