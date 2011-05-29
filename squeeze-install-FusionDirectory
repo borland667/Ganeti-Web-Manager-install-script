@@ -1,7 +1,7 @@
 #!/bin/bash
 #,------------------------------------------------------------------------------
 #| Script to install and configure Fusion Directory and supporting software in a
-#| Debian Squeeze environment (and may work in Lenny).
+#| Debian Squeeze environment.
 #|
 #| WARNING:: This script is very new and experimental.  At this stage
 #| it's more intended as documenation that can be easily verified for

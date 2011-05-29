@@ -3,10 +3,10 @@ here because you want to learn, then do yourself a favour and write some notes
 for others so you can learn it properly.   ;)  You'll also feel better about
 the exercise because you'll be helping others.
 
-  These files document how to install Fusion Directory 1.0, additional
+  These files document how to install Fusion Directory, additional
 modules and supporting software on a SINGLE Debian Squeeze server.  They
 are valid shell scripts, but they're experimental so don't rely on them 
-to work exactly as intended.
+to work as intended.
 
   If, after this warning, you still want to be lazy and just run these as
 as scripts READ ALL OUTPUT VERY CAREFULLY.  Hopefully if (when?) something
@@ -17,20 +17,15 @@ usually on #fusiondirectory on FreeNode (an IRC network) for a few hours
 (~7am[GMT]-
 3pm[GMT]) every day so feel free to drop by to ask questions, comment or
 collaborate.  My nickname is pav5088, and there are developers and users of
-Fusion Directory who can also help.  My email address is at
+Fusion Directory there who can also help.  My email address is at
 the end of this file if you prefer.
 
   Some scripts/docs will need to be run before others.
-squeeze-install-FusionDirectory-2.7 will need to run first, and the others
+squeeze-install-FusionDirectory will need to run first, and the others
 should warn+exit if a dependency hasn't been installed.
 
   The latest version of these scripts can be viewed here :
-https://oss.gonicus.de/labs/gosa-contrib/browser/squeeze-install-scripts/trunk .
-To check out from svn :
-svn co https://oss.gonicus.de/repositories/gosa-contrib/squeeze-install-scripts/trunk squeeze-install-scripts
-
-  There is some (minimal) extra documentation on using these scripts here :
-http://gosa.simnix.info/index.php/GOsa_setup_notes .
+https://forge.fusiondirectory.org/projects/install-scripts/repository
 
 If you have comments or fixes please email me :
 Mark Pavlichuk
