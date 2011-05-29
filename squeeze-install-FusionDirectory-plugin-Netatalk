@@ -45,10 +45,10 @@ aptitude install -y --allow-untrusted netatalk fusiondirectory-plugin-netatalk f
 #        and pasted here.  Both scripts would need to check if modifications
 #        have been done by the other in this case.
 
-# FIXME: Until GOsa 2.6.11-2 (and trigger support) update-fusion needs
-#        to be run manually.
-#        update-fusion updates the interface after new plugins are installed.
-update-fusion
+# FIXME: Until GOsa 2.6.11-2 (and trigger support) update-fusiondirectory needs
+#        to be run manually.  update-fusiondirectory updates the interface
+#        after new plugins are installed.
+update-fusiondirectory
 
 echo ""
 # FIXME: Is the following explanation accurate and complete???
