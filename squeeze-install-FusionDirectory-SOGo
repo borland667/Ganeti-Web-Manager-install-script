@@ -149,6 +149,9 @@ sed -i 's@^.*RequestHeader set "x-webobjects-server-url" ".*$@  RequestHeader se
 # FIXME: This seems to work, but we really should investigate the other
 #        options some more, and document here.
 
+# The SOGo Apache configuration uses Apache's rewrite module
+a2enmod rewrite
+
 /etc/init.d/sogo restart
 /etc/init.d/apache2 restart
 
