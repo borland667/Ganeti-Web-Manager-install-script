@@ -32,9 +32,10 @@ echo "mysql --user=root --password=<mysql-root-password> -e \"grant SELECT,INSER
 echo ""
 echo "You must also add a 'Logging' service to your server inside Fusion Directory."
 echo "Any other host that needs to log data to rsyslog must also get mysql access."
-echo "You can use the same method as aboove using the required hostname, and"
+echo "You can use the same method as above using the required hostname, and"
 echo "to allow any host (insecure) you can use the '%' host wildcard."
 echo "Make these changes, then hit <enter> once done..."
+read my_dummy_value
 
 /etc/init.d/mysql restart
 /etc/init.d/rsyslog restart
