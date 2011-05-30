@@ -78,7 +78,7 @@ echo "...for everything else default values should be OK."
 echo "<Hit enter to continue>"
 read my_dummy_value
 
-if apt-get -y install samba libnss-ldapd libpam-ldap; then
+if apt-get -y install samba smbldap-tools libnss-ldapd libpam-ldap; then
 	echo "Installation of samba, libnss-ldapd and"
 	echo "libpam-ldap successful..."
 else
@@ -193,7 +193,7 @@ fi
 ## options.
 
 # Make required changes in /etc/samba/smb.conf to support LDAP, to become
-# a domain master, use the gopdc scripts to create/delete machine
+# a domain master, use the smbldap-tools scripts to create/delete machine
 # accounts etc...
 
 # We first use some script magic to load LDAP connection details
@@ -201,15 +201,13 @@ fi
 LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
 echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
 
-# FIXME: Replace the following with a cn=config version...  when everified delete this...
-#LDAP_BASE_DN=`grep '^suffix ' /etc/ldap/slapd.conf | awk '/ */{ print $2 }' | sed 's/"//g'`
-#echo "Base DN extracted from slapd.conf : "$LDAP_BASE_DN
 LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '{ print $2 }'`
 echo "Base DN extracted from LDAP (cn=config): "$LDAP_BASE_DN
 
 # ...we then search for and replace the passdb backend config option, and also paste
-# in a lot of other config information (for LDAP, GOpdc etc...).  Notice we use the
-# LDAP connection details extracted above (ie. $LDAP_BASE_DN and $LDAP_ADMIN_DN)  
+# in a lot of other config information (for LDAP, smbldap-tools etc...).  Notice we
+# use the LDAP connection details extracted above (ie. $LDAP_BASE_DN and 
+# $LDAP_ADMIN_DN)  
 if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://localhost\
    domain logons = yes\
    preferred master = yes\
@@ -220,13 +218,13 @@ if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://localho
    ldap group suffix = ou=groups\
    ldap machine suffix = ou=systems\
    ldap passwd sync = Yes\
-   add user script = /usr/share/gopdc/gopdc -adduser "%u"\
-   add machine script = /usr/share/gopdc/gopdc -addmachine "%u"\
-   add group script = /usr/share/gopdc/gopdc -addgroup "%g"\
-   add user to group script = /usr/share/gopdc/gopdc -usr2grp "%u" "%g"\
-   delete user script = /usr/share/gopdc/gopdc -deluser "%u"\
-   delete group script = /usr/share/gopdc/gopdc -delgroup "%g"\
-   delete user from group script = /usr/share/gopdc/gopdc -usrFgrp "%u" "%g"\
+   add user script = /usr/sbin/smbldap-useradd -m "%u"\
+   add machine script = /usr/sbin/smbldap-useradd -w "%u"\
+   add group script = /usr/sbin/smbldap-groupadd -p "%g"\
+   add user to group script = /usr/sbin/smbldap-groupmod -m "%u" "%g"\
+   delete user script = /usr/sbin/smbldap-userdel "%u"\
+   delete group script = /usr/sbin/smbldap-groupdel "%g"\
+   delete user from group script = /usr/sbin/smbldap-groupmod -x "%u" "%g"\
    #trouble with server not becoming a domain master?  This helps\
    os level = 65\
 @' /etc/samba/smb.conf; then
@@ -255,36 +253,35 @@ fi
 # read only = yes
 # share modes = no
 
+# FIXME: New smbldap-tools stuff.  Check if correct, then delete this note.
+zcat /usr/share/doc/smbldap-tools/examples/smbldap.conf.gz > /etc/smbldap-tools/smbldap.conf
+cp /usr/share/doc/smbldap-tools/examples/smbldap_bind.conf /etc/smbldap-tools/smbldap_bind.conf
 
-# To install GOpdc :
-# OK, it's not good for security to have build tools installed etc...
-# Strictly this should either be done on another machine, or it should be
-# done in a safer way.
-apt-get -y install subversion debhelper fakeroot
-cd /usr/src
-svn co https://oss.gonicus.de/repositories/gopdc/trunk/ gopdc
-cd /usr/src/gopdc
-dpkg-buildpackage -us -uc -rfakeroot
-cd /usr/src
-dpkg -i gopdc*.deb
- 
-# Must edit /etc/gopdc.xml (GOpdc's configuration file)
-# Defaults should be OK except for smb_domain...  and LDAP settings.  Enable TLS
-# setting if the LDAP server isn't on the local machine.  make mach_own_grp true
-# Also set the post_exec_* settings :
+chmod 0644 /etc/smbldap-tools/smbldap.conf
+chmod 0600 /etc/smbldap-tools/smbldap_bind.conf
 
-DOMAIN_NAME=`grep 'workgroup =' /etc/samba/smb.conf | awk -F'=' '{ print $2 }'|sed 's/ //g'`
+DNS_DOMAIN=`hostname --domain`
+NT_DOMAIN=`grep 'workgroup =' /etc/samba/smb.conf | awk -F'=' '{ print $2 }'|sed 's/ //g'`
 echo "Domain Name extracted from /etc/samba/smb.conf"
 LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
 echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
 
-sed -i 's@smb_domain" value="GODOM@smb_domain" value="'$DOMAIN_NAME'@' /etc/gopdc.xml
-sed -i 's@ldap_base" value="dc=gonicus,dc=de@ldap_base" value="'$LDAP_BASE_DN'@' /etc/gopdc.xml
-sed -i 's@ldap_binddn" value="cn=ldapadmin,dc=gonicus,dc=de@ldap_binddn" value="'$LDAP_ADMIN_DN'@' /etc/gopdc.xml
-sed -i 's@ldap_pass" value="tester@ldap_pass" value="'$LDAP_ADMIN_PW'@' /etc/gopdc.xml
-sed -i 's@mach_own_grp" value="false@mach_own_grp" value="true@' /etc/gopdc.xml
-sed -i 's@ldap_port" value="389@ldap_port" value="636@' /etc/gopdc.xml
-sed -i 's@ldap_host" value="localhost@ldap_host" value="ldaps://localhost@' /etc/gopdc.xml
+sed -i 's@sambaDomain="DOMSMB@sambaDomain="'$DNS_DOMAIN'@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@suffix="dc=iallanis,dc=info@suffix="'$LDAP_BASE_DN'@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@masterDN="cn=Master,dc=iallanis,dc=info@masterDN="'$LDAP_ADMIN_DN'@' /etc/smbldap-tools/smbldap_bind.conf
+sed -i 's@masterDN="cn=Master,dc=iallanis,dc=info@masterDN="'$LDAP_ADMIN_DN'@' /etc/smbldap-tools/smbldap_bind.conf
+sed -i 's@masterPw="secret@masterPw="'$LDAP_ADMIN_PW'@' /etc/smbldap-tools/smbldap_bind.conf
+sed -i 's@slavePw="secret@slavePw="'$LDAP_ADMIN_PW'@' /etc/smbldap-tools/smbldap_bind.conf
+sed -i 's@mailDomain="iallanis.info@mailDomain="'$DNS_DOMAIN'@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@masterPort="389@masterPort="636@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@slavePort="389@slavePort="636@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@usersdn="ou=Users@usersdn="ou=people@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@computersdn="ou=Computers@computersdn="ou=computers@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@groupsdn="ou=Groups@groupsdn="ou=groups@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@slaveLDAP="ldap.iallanis.info@slaveLDAP="localhost@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@masterLDAP="ldap.iallanis.info@masterLDAP="localhost@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@ldapSSL="0"@ldapSSL="1"@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@ldapTLS="1"@ldapTLS="0"@' /etc/smbldap-tools/smbldap.conf
 
 # The nscd daemon which caches name service data (ie. passwd/shadow/group)
 # can cause problems when this data changes quickly eg. adding users, machines etc...
@@ -294,9 +291,6 @@ sed -i 's@ldap_host" value="localhost@ldap_host" value="ldaps://localhost@' /etc
 # NOTE: This didn't seem to work for me in Lenny.  I worked around
 # the problem by putting my "post_create" scripts into the smb.conf file
 # - I used semicolons to put two scripts where one should go in /etc/samba/smb.conf .
-sed -i 's@post_exec_user" value="/bin/true@post_exec_user" value="/etc/init.d/nscd restart@' /etc/gopdc.xml
-sed -i 's@post_exec_mach" value="/bin/true@post_exec_mach" value="/etc/init.d/nscd restart@' /etc/gopdc.xml
-sed -i 's@post_exec_grup" value="/bin/true@post_exec_grup" value="/etc/init.d/nscd restart@' /etc/gopdc.xml
 
 ## Remove any cached samba data
 rm /var/lib/samba/*.tdb
@@ -331,19 +325,14 @@ echo "Extracted Domain SID from LDAP..."
 #	 NOTE: The final double-quote is not part of the sed statement below.
 sed -i 's@sambaSID="0-815-4711@sambaSID="'$DOMAIN_SID'"\
 	      sambaversion="3@' /etc/fusiondirectory/fusiondirectory.conf
+sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' /etc/smbldap-tools/smbldap.conf
 
-####  This is an alternate method for adding a SID to LDAP.  Preferred is the
-####  method above, but perhaps this would be useful when populating an LDAP
-####  tree without a Samba server.
-## First we find our domain SID 
-# net getdomainsid
-## Then we enter this SID into LDAP
-# /usr/share/gopdc/populate --addsid
+# Initialise the LDAP database (what does this do exactly?)
+# **NOTE**: This makes the tool start adding uids and gids from 1000 (hardcoded
+# default), if you want to start from different numbers you can use "-g
+# <firstgid>" or "-u <firstuid>" as options to smbldap-populate.
 
-# There is a bug with this populate command, and it doesn't create the required groups
-# (at least under Debian Lenny)...  so we run the checkgroups command afterward to fix it.
-/usr/share/gopdc/populate --populate
-/usr/share/gopdc/populate --checkgroups
+/usr/sbin/smbldap-populate
 
 # Run this to update the Fusion Directory interface to include Samba options.
 update-fusiondirectory

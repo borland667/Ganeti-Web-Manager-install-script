@@ -112,19 +112,7 @@ apt-get update
 
 # By default slapd sets our Certificate Authorities 'organisation name' to
 # our hosts domain name.  Just in case we want to set this to something
-# different we make slapd installation noninteractive - we use a more detailed
-# configuration method later.
-DEBCONF_FRONTEND="noninteractive"
-if apt-get -y --allow-unauthenticated install apache2-mpm-prefork php5-snmp slapd ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin; then
-	echo "Installation of Fusion Directory and prerequisite packages successful..."
-	unset DEBCONF_FRONTEND
-else
-	echo "Installation of Fusion Directory and prerequisite packages failed.  Exiting..."
-	unset DEBCONF_FRONTEND
-	exit 1
-fi
-
-# Detailed reconfiguration of slapd
+# different we preconfigure slapd.
 echo ""
 echo "The next step is configuring the slapd LDAP server.  Please remember :"
 echo "1) The base dn you use for your LDAP directory (generated from the"
@@ -135,7 +123,25 @@ echo "IMPORTANT!!! - this info will be required later both in this script"
 echo "and the scripts that install plugins."
 echo "<hit enter to continue>"
 read my_dummy_value
-dpkg-reconfigure slapd
+
+# We want the user to be able to see the above instructions while configuring
+# slapd, so we temporarily enable the "readline" debconf interface.
+DEBCONF_FRONTEND="readline"
+dpkg-preconfigure slapd
+
+#  We've now configured slapd, so set debconf to be noninteractive temporarily.
+# FIXME: Is this even required?
+DEBCONF_FRONTEND="noninteractive"
+
+if apt-get -y --allow-unauthenticated install apache2-mpm-prefork php5-snmp ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin slapd; then
+	echo "Installation of Fusion Directory and prerequisite packages successful..."
+	unset DEBCONF_FRONTEND
+else
+	echo "Installation of Fusion Directory and prerequisite packages failed.  Exiting..."
+	unset DEBCONF_FRONTEND
+	exit 1
+fi
+
 
 #,-----------------------------------------------------------------------------
 #| We must make some changes to PHPs configuration as required by Fusion
