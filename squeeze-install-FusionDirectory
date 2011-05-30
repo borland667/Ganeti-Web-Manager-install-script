@@ -126,8 +126,9 @@ read my_dummy_value
 
 # We want the user to be able to see the above instructions while configuring
 # slapd, so we temporarily enable the "readline" debconf interface.
-DEBCONF_FRONTEND="readline"
-dpkg-preconfigure slapd
+DEBCONF_PRIORITY="low"
+apt-get install slapd
+unset DEBCONF_PRIORITY
 
 #  We've now configured slapd, so set debconf to be noninteractive temporarily.
 # FIXME: Is this even required?
