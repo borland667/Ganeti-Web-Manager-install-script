@@ -126,15 +126,11 @@ read my_dummy_value
 
 # We want the user to be able to see the above instructions while configuring
 # slapd, so we temporarily enable the "readline" debconf interface.
-DEBCONF_PRIORITY="low"
-apt-get install slapd
+DEBCONF_PRIORITY="low" apt-get install slapd
 unset DEBCONF_PRIORITY
+# FIXME: Is unsetting of DEBCONF_PRIORITY required?
 
-#  We've now configured slapd, so set debconf to be noninteractive temporarily.
-# FIXME: Is this even required?
-DEBCONF_FRONTEND="noninteractive"
-
-if apt-get -y --allow-unauthenticated install apache2-mpm-prefork php5-snmp ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin slapd; then
+if apt-get -y --allow-unauthenticated install apache2-mpm-prefork php5-snmp ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin; then
 	echo "Installation of Fusion Directory and prerequisite packages successful..."
 	unset DEBCONF_FRONTEND
 else
@@ -142,7 +138,7 @@ else
 	unset DEBCONF_FRONTEND
 	exit 1
 fi
-
+# FIXME: The unsetting of DEBCONF_FRONTEND isn't required anymore... remove
 
 #,-----------------------------------------------------------------------------
 #| We must make some changes to PHPs configuration as required by Fusion
