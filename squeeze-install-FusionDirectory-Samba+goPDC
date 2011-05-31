@@ -217,7 +217,12 @@ if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://localho
    ldap user suffix = ou=people\
    ldap group suffix = ou=groups\
    ldap machine suffix = ou=systems\
-   ldap passwd sync = Yes\
+   ; Dont use sambas internal ldap password sync\
+   ldap passwd sync = No\
+   ; Use an external program to sync the LDAP password\
+   unix password sync = Yes\
+   passwd program = /usr/sbin/smbldap-passwd -u %u\
+   passwd chat = *New*password* '"%n\n"' *Retype*new*password* '"%n\n"' *all*authentication*tokens*updated*\
    add user script = /usr/sbin/smbldap-useradd -m "%u"\
    add machine script = /usr/sbin/smbldap-useradd -w "%u"\
    add group script = /usr/sbin/smbldap-groupadd -p "%g"\
@@ -268,8 +273,8 @@ echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.co
 
 sed -i 's@sambaDomain="DOMSMB@sambaDomain="'$DNS_DOMAIN'@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@suffix="dc=iallanis,dc=info@suffix="'$LDAP_BASE_DN'@' /etc/smbldap-tools/smbldap.conf
-sed -i 's@masterDN="cn=Master,dc=iallanis,dc=info@masterDN="'$LDAP_ADMIN_DN'@' /etc/smbldap-tools/smbldap_bind.conf
-sed -i 's@masterDN="cn=Master,dc=iallanis,dc=info@masterDN="'$LDAP_ADMIN_DN'@' /etc/smbldap-tools/smbldap_bind.conf
+sed -i 's@masterDN="cn=Manager,dc=iallanis,dc=info@masterDN="'$LDAP_ADMIN_DN'@' /etc/smbldap-tools/smbldap_bind.conf
+sed -i 's@slaveDN="cn=Manager,dc=iallanis,dc=info@slaveDN="'$LDAP_ADMIN_DN'@' /etc/smbldap-tools/smbldap_bind.conf
 sed -i 's@masterPw="secret@masterPw="'$LDAP_ADMIN_PW'@' /etc/smbldap-tools/smbldap_bind.conf
 sed -i 's@slavePw="secret@slavePw="'$LDAP_ADMIN_PW'@' /etc/smbldap-tools/smbldap_bind.conf
 sed -i 's@mailDomain="iallanis.info@mailDomain="'$DNS_DOMAIN'@' /etc/smbldap-tools/smbldap.conf
@@ -332,7 +337,7 @@ sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' 
 # default), if you want to start from different numbers you can use "-g
 # <firstgid>" or "-u <firstuid>" as options to smbldap-populate.
 
-/usr/sbin/smbldap-populate
+/usr/sbin/smbldap-populate -u 1100 -g 1100
 
 # Run this to update the Fusion Directory interface to include Samba options.
 update-fusiondirectory
