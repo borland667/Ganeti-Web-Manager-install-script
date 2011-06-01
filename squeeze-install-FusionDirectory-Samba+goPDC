@@ -288,6 +288,10 @@ sed -i 's@masterLDAP="ldap.iallanis.info@masterLDAP="localhost@' /etc/smbldap-to
 sed -i 's@ldapSSL="0"@ldapSSL="1"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@ldapTLS="1"@ldapTLS="0"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@verify="require"@verify="none"@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@strictNamingRules="true@strictNamingRules="false@' /etc/fusiondirectory/fusiondirectory.conf
+## FIXME: Trying to not explicitly specify SID in smbldap.conf.  Works?
+#sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@@' /etc/smbldap-tools/smbldap.conf
 
 # The nscd daemon which caches name service data (ie. passwd/shadow/group)
 # can cause problems when this data changes quickly eg. adding users, machines etc...
@@ -297,6 +301,15 @@ sed -i 's@verify="require"@verify="none"@' /etc/smbldap-tools/smbldap.conf
 # NOTE: This didn't seem to work for me in Lenny.  I worked around
 # the problem by putting my "post_create" scripts into the smb.conf file
 # - I used semicolons to put two scripts where one should go in /etc/samba/smb.conf .
+
+
+
+# Initialise the LDAP database (what does this do exactly?)
+# **NOTE**: This makes the tool start adding uids and gids from 1000 (hardcoded
+# default), if you want to start from different numbers you can use "-g
+# <firstgid>" or "-u <firstuid>" as options to smbldap-populate.
+
+/usr/sbin/smbldap-populate -u 1100 -g 1100
 
 ## Remove any cached samba data
 rm /var/lib/samba/*.tdb
@@ -321,7 +334,7 @@ smbpasswd -W
 ## I believe this is required(?) for enabling GOpdc functionality... is this true?
 ## What are the repercussions of doing this?!?!?!?
 ## And you must edit sambaSID to equal your local SID (ie. net getdomainsid)
-sed -i 's@strictNamingRules="true@strictNamingRules="false@' /etc/fusiondirectory/fusiondirectory.conf
+
 DOMAIN_SID=`net getdomainsid | grep domain - | awk -F':' '{print $2}' | sed 's/ //g'`
 echo "Extracted Domain SID from LDAP..."
 # FIXME: Putting the sambaversion explicitly into fusiondirectory.conf hopefully won't be
@@ -331,14 +344,7 @@ echo "Extracted Domain SID from LDAP..."
 #	 NOTE: The final double-quote is not part of the sed statement below.
 sed -i 's@sambaSID="0-815-4711@sambaSID="'$DOMAIN_SID'"\
 	      sambaversion="3@' /etc/fusiondirectory/fusiondirectory.conf
-sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' /etc/smbldap-tools/smbldap.conf
 
-# Initialise the LDAP database (what does this do exactly?)
-# **NOTE**: This makes the tool start adding uids and gids from 1000 (hardcoded
-# default), if you want to start from different numbers you can use "-g
-# <firstgid>" or "-u <firstuid>" as options to smbldap-populate.
-
-/usr/sbin/smbldap-populate -u 1100 -g 1100
 
 # Run this to update the Fusion Directory interface to include Samba options.
 update-fusiondirectory
