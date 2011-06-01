@@ -318,10 +318,10 @@ sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' 
 # rm /var/lib/samba/*.ldb # (?????? is this required)
 
 # Set the password (required after deleting the tdb files).
-#echo ""
-#echo "USER INPUT REQUIRED!!!"
-#echo "We have deleted Samba's tdb cache...  reinitialising required your admin pw."
-#smbpasswd -W
+echo ""
+echo "USER INPUT REQUIRED!!!"
+echo "We have deleted Samba's tdb cache...  reinitialising required your admin pw."
+smbpasswd -W
 # Once we restart Samba it will autocreate its SID in LDAP
 /etc/init.d/samba restart
 
