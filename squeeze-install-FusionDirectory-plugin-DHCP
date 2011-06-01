@@ -23,7 +23,7 @@ fi
 
 # Install the LDAP enabled DHCP3 server and FusionDirectory plugins.
 apt-get update
-if apt-get install -y --allow-unauthenticated isc-dhcp-server-ldap fusiondirectory-plugin-dhcp fusiondirectory-plugin-dhcp-schema; then
+if apt-get install -y --allow-unauthenticated isc-dhcp-server-ldap fusiondirectory-plugin-dhcp fusiondirectory-plugin-dhcp-schema fusiondirectory-plugin-systems fusiondirectory-plugin-goto; then
 	echo "Required packages successfully installed..."
 else
 	echo "Required packages failed to install successfully.  Exiting..."
