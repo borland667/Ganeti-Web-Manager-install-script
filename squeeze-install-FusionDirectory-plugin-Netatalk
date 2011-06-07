@@ -35,10 +35,11 @@ if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
 	exit 1
 fi
 
-aptitude install -y --allow-untrusted netatalk fusiondirectory-plugin-netatalk fusiondirectory-plugin-goto
+aptitude install -y --allow-untrusted netatalk fusiondirectory-plugin-netatalk
 
 # FIXME: Apparently fusiondirectory-plugin-goto is required for the Network Share service.
-#        Test and delete this note.
+#        BUT for basic auth support we probably don't need it...  but in this case should
+#        we bother to install the netatalk plugin?  Investigate.
 # FIXME: Apparently Netatalk authenticates via PAM, so we need to set up PAM
 #        LDAP authentication perhaps at the Linux level.  I've done this
 #        already in the Samba script, so perhaps that method could be cut
