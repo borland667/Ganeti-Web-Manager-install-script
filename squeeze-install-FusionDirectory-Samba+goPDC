@@ -26,7 +26,7 @@ fi
 #echo "3) The LDAP search base (which can also be left at its default value)" 
 
 # First we install the plugin that allows Fusion Directory to manage Samba users
-apt-get -y --allow-unauthenticated install fusiondirectory-plugin-sambasmb://amd64/public/trunk/squeeze-install-GOsa-2.6-plugin-FAIsmb://amd64/public/trunk/squeeze-install-GOsa-2.6-plugin-FAI
+apt-get -y --allow-unauthenticated install fusiondirectory-plugin-samba
 
 # We also install the following software : Samba, gopdc, libnss-ldapd
 # and libpam-ldap.
