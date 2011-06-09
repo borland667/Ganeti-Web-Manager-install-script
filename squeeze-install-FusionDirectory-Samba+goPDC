@@ -342,7 +342,7 @@ echo "Extracted Domain SID from LDAP..."
 # sed -i 's@sambaSID="0-815-4711@sambaSID="'$DOMAIN_SID'"\
 # 	      sambaversion="3@' /etc/fusiondirectory/fusiondirectory.conf
 # Apparently Fusion Directory can automatically get this from LDAP?
-sed -i 's@sambaSID="0-815-4711@@' /etc/fusiondirectory/fusiondirectory.conf
+sed -i 's@sambaSID="0-815-4711"@@' /etc/fusiondirectory/fusiondirectory.conf
 # FIXME: Erase sambaRidBase...  Fusion Directory can get this from LDAP.
 #        Works?
 sed -i 's@sambaRidBase="1"@@' /etc/fusiondirectory/fusiondirectory.conf
