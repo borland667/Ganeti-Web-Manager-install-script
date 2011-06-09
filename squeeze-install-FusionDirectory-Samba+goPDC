@@ -337,14 +337,15 @@ smbpasswd -W
 
 DOMAIN_SID=`net getdomainsid | grep domain - | awk -F':' '{print $2}' | sed 's/ //g'`
 echo "Extracted Domain SID from LDAP..."
-# FIXME: Putting the sambaversion explicitly into fusiondirectory.conf hopefully won't be
-#        required after v2.6.6 of GOsa.  Erase sambaversion (but not sambaSID)
-#        from this command when GOsa/Fusion Directory does this automatically
-#        like it should.
-#	 NOTE: The final double-quote is not part of the sed statement below.
-sed -i 's@sambaSID="0-815-4711@sambaSID="'$DOMAIN_SID'"\
-	      sambaversion="3@' /etc/fusiondirectory/fusiondirectory.conf
-
+# FIXME: I've just tried erasing sambaSID completely rather than substituting
+# eg:
+# sed -i 's@sambaSID="0-815-4711@sambaSID="'$DOMAIN_SID'"\
+# 	      sambaversion="3@' /etc/fusiondirectory/fusiondirectory.conf
+# Apparently Fusion Directory can automatically get this from LDAP?
+sed -i 's@sambaSID="0-815-4711@@' /etc/fusiondirectory/fusiondirectory.conf
+# FIXME: Erase sambaRidBase...  Fusion Directory can get this from LDAP.
+#        Works?
+sed -i 's@sambaRidBase="1"@@' /etc/fusiondirectory/fusiondirectory.conf
 
 # Run this to update the Fusion Directory interface to include Samba options.
 update-fusiondirectory
