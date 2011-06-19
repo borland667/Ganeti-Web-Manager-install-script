@@ -15,14 +15,15 @@ else
 fi
 
 # FIXME: prerequisite scripts (we should test these have run :
-# squeeze-install-GOsa-2.6
-if [ ! -f /etc/gosa/gosa.conf ]; then
-  echo "Run the squeeze-install-GOsa-2.6 script before this one.  GOsa must be"
+# squeeze-install-FusionDirectory
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory script before this one.  GOsa must be"
   echo "installed and configured before we can continue..."
   exit 1
 fi
 
-# NOTE:: We install gosa-si-client as well as the server because both GOsa and
+# NOTE:: We install gosa-si-client as well as the server because both 
+# Fusion Directory and
 # the infrastructure we're controlling are on the one box. 
 # FIXME: the gosa-si-client package optionally suggests goto-fai-progress and
 # gosa-si-client-krb5.  If and when should we use these?
@@ -90,9 +91,9 @@ dpkg -i *.deb
 ## moment we simply get it from trunk.
 if apt-get -y --allow-unauthenticated install gosa-si-server\
   gosa-si-common gosa-si-client; then
-  echo "Installed GOsa Server Infrastructure modules from repositories..."
+  echo "Installed Fusion Directory Server Infrastructure modules from repositories..."
 else
-  echo "Can't find GOsa Server Infrastructure modules in the repositories..."
+  echo "Can't find Fusion Directory Server Infrastructure modules in the repositories..."
   echo "Perhaps we are running on a non-i386 architecture?"
   # At the moment of writing amd64 gosa-si debs aren't available
   echo "Download, compile and install gosa-si :"
@@ -112,12 +113,12 @@ fi
 # 1) Pull LDAP config data from our gosa and slapd configuration. (admin dn, base dn and
 #    admin password.
 
-LDAP_ADMIN_DN=`grep 'adminDn="' /etc/gosa/gosa.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
-echo "LDAP admin dn extracted from /etc/gosa/gosa.conf"
+LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
 LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '/ */{ print $2 }'`
 echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
-LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/gosa/gosa.conf | awk -F'"' '{print $2 }'`
-echo "LDAP admin password extracted from /etc/gosa/gosa.conf"
+LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
+echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
 FQDN=`hostname --fqdn`
 HOST_IP=`hostname --ip`
 
@@ -130,10 +131,10 @@ sed -i 's@ldap-admin-dn = cn=ldapadmin,dc=your,dc=domain@ldap-admin-dn = '$LDAP_
 sed -i 's@ldap-admin-password = tester@ldap-admin-password = '$LDAP_ADMIN_PW'@' /etc/gosa-si/server.conf
 
 # 3) Uncomment and configure gosa-si connection URI and timeout settings in
-#    gosa.conf.  FIXME: Correct the password to be something intelligent
+#    fusiondirectory.conf.  FIXME: Correct the password to be something intelligent
 #    This password needs to match [GOsaPackages] in /etc/gosa-si/server.conf
 sed -i 's/disabled_gosaSupportURI="gosa-si-secret@server:20081"/gosaSupportURI="secret-gosa-password@'$FQDN':20081"/' /etc/gosa/gosa.conf
-sed -i 's@disabled_gosaSupportTimeout="15"@gosaSupportTimeout="15"@' /etc/gosa/gosa.conf
+sed -i 's@disabled_gosaSupportTimeout="15"@gosaSupportTimeout="15"@' /etc/fusiondirectory/fusiondirectory.conf
 
 ## FIXME:Does any more configuration need to happen?????  Especially with keys????
 ## (I'm not really clear on what gosa-si even does).  I believe a hostname can go
