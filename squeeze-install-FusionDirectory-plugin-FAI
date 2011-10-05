@@ -215,7 +215,7 @@ sudo -u openldap slapindex
 /etc/init.d/gosa-si-server start
 /etc/init.d/gosa-si-client start
 
-update-fusiondirectory
+fusiondirectory-setup --update-cache --update-locales
 
 echo ""
 echo "When installing FAI clients speed is critical, therefore you almost"

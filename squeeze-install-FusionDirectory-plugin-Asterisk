@@ -292,7 +292,7 @@ sed -i 's@#RUNASTERISK=no@RUNASTERISK=yes@' /etc/default/asterisk
 /etc/init.d/asterisk restart
 
 # I seemed to need to do this to get the Asterisk options to show up...
-update-fusiondirectory
+fusiondirectory-setup --update-cache --update-locales
 
 # To debug execute asterisk from the commandline :
 # asterisk -U asterisk -vvvgc 

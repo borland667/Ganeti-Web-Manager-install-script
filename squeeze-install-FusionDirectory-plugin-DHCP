@@ -23,7 +23,7 @@ fi
 
 # Install the LDAP enabled DHCP3 server and FusionDirectory plugins.
 apt-get update
-if apt-get install -y --allow-unauthenticated isc-dhcp-server-ldap fusiondirectory-plugin-dhcp fusiondirectory-plugin-dhcp-schema fusiondirectory-plugin-systems fusiondirectory-plugin-goto; then
+if apt-get install -y --allow-unauthenticated isc-dhcp-server-ldap fusiondirectory-plugin-dhcp fusiondirectory-plugin-dhcp-schema; then
 	echo "Required packages successfully installed..."
 else
 	echo "Required packages failed to install successfully.  Exiting..."
@@ -62,10 +62,10 @@ rm /tmp/fix.ldif
 sudo -u openldap slapindex
 /etc/init.d/slapd start
 
-# Make sure the dhcpd.leases file exists, otherwise the dhcp server won't start.
-# This is probably not required if a nonbuggy version of the server is installed.
-# (I discovered a regression in the DHCP server deb)
-touch /var/lib/dhcp3/dhcpd.leases
+## Make sure the dhcpd.leases file exists, otherwise the dhcp server won't start.
+## This is probably not required if a nonbuggy version of the server is installed.
+## (I discovered a regression in the DHCP server deb)
+#touch /var/lib/dhcp3/dhcpd.leases
 
 # Enable DHCP plugin in Fusion Directory configuration if required
 if grep '<!-- *<tab class="servdhcp" name="DHCP" /> *-->' /etc/fusiondirectory/fusiondirectory.conf; then
@@ -132,9 +132,10 @@ fi
 #sed -i 's@class="systems" />@class="systemManagement" />@' /etc/gosa/gosa.conf
 ## Remove this if it's no longer required.
 
-# FIXME: Does this work?  If not, perhaps suggest logging out and logging in.
-# Do this to get the new option to show up...
-update-fusiondirectory
+## FIXME: Does this work?  If not, perhaps suggest logging out and logging in.
+## Do this to get the new option to show up...
+fusiondirectory-setup --update-cache --update-locales
+
 /etc/init.d/apache2 restart
 
 echo ""

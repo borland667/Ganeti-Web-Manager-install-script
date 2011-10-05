@@ -152,8 +152,8 @@ touch /etc/bind/named.conf.ldap2zone
 # FIXME: This is a patched a nasty bug in GOsa 2.6.10.  Remove once this is fixed
 sed -i 's@notify;@notify yes;@' /usr/sbin/ldap2bind
 
-# FIXME: This update-fusiondirectory command may not be required.  Test...
-update-fusiondirectory
+## FIXME: This command may not be required.  Test...
+fusiondirectory-setup --update-cache --update-locales
 
 # FIXME: We could populate the instructions with good guesses of what the
 #        user should fill in.

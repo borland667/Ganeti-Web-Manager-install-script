@@ -348,7 +348,7 @@ sed -i 's@sambaSID="0-815-4711"@@' /etc/fusiondirectory/fusiondirectory.conf
 sed -i 's@sambaRidBase="1"@@' /etc/fusiondirectory/fusiondirectory.conf
 
 # Run this to update the Fusion Directory interface to include Samba options.
-update-fusiondirectory
+fusiondirectory-setup --update-cache --update-locales
 
 echo ""
 echo "!!! YOU ARE NOT FINISHED YET !!!"
