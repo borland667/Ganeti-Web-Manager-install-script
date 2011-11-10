@@ -6,6 +6,9 @@ if [ "$USER" != "root" ]; then
         exit 1
 fi
 
+# FIXME: Right now argonaut is beta so we add a temporary beta repo. remove later
+echo "deb http://repos.fusiondirectory.org/argonaut-beta/ ./" >> /etc/apt/sources.list.d/fusiondirectory.list
+
 echo "Downloading package lists...  This may take a while..."
 if apt-get -qq update; then
         echo "Success"
