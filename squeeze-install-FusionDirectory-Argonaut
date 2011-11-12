@@ -1,0 +1,75 @@
+#!/bin/bash
+# Shell script to install Argonaut (Server Infrastructure daemon)
+# FIXME: Appears to work but is VERY new.  Extreme caution!
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# FIXME: Right now argonaut is beta so we add a temporary beta repo. remove later
+echo "deb http://repos.fusiondirectory.org/argonaut-beta/ ./" >> /etc/apt/sources.list.d/fusiondirectory.list
+
+echo "Downloading package lists...  This may take a while..."
+if apt-get -qq update; then
+        echo "Success"
+else
+        echo "Failure to download package information.  Exiting..."
+        exit 1
+fi
+
+# FIXME: prerequisite scripts (we should test these have run :
+# squeeze-install-FusionDirectory
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory script before this one.  Fusion"
+  echo "Directory must be installed and configured before we can continue..."
+  exit 1
+fi
+
+# NOTE:: We install argonaut-client as well as the server because both 
+# Fusion Directory and the infrastructure we're controlling are on the one box.
+# FIXME: the gosa-si-client package optionally suggests goto-fai-progress and
+# gosa-si-client-krb5.  If and when should we use these?
+
+apt-get -y --allow-unauthenticated install argonaut-client-management argonaut-server argonaut-common 
+
+# Argonaut needs to be configured. :
+
+# We raid Fusion Directory's config file, and examine our network config for
+# values we need to configure Argonaut :
+LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
+# FIXME: We no longer need to extract the base DN, but I'm keeping this around in case this changes.
+#LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '/ */{ print $2 }'`
+#echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
+LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
+echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+FQDN=`hostname --fqdn`
+HOST_IP=`hostname --ip`
+HOST_INTERFACE=`ifconfig | awk '/^[a-z]/ { I=$1}; /'$HOST_IP'/ {print(I)}'`
+
+# We plug the above values into argonauts config...
+sed -i 's@127.0.0.1@'$HOST_IP'@' /etc/argonaut/argonaut.conf
+sed -i 's@eth0@'$HOST_INTERFACE'@' /etc/argonaut/argonaut.conf
+sed -i 's@secret@'$LDAP_ADMIN_PW'@' /etc/argonaut/argonaut.conf
+sed -i 's@cn=admin,dc=fusiondirectory,dc=org@'$LDAP_ADMIN_DN'@' /etc/argonaut/argonaut.conf
+
+# ...and allow Fusion Directory to know about our argonaut server.
+sed -i 's@<location name=.*$'\
+'@&\n'\
+'              argonautServer="http://'$HOST_IP':8080"@' /etc/fusiondirectory/fusiondirectory.conf
+
+# FIXME : <Pav5088> ...and it looks like I might have to create a log file also.
+#         <bilbo-the-hobbit> Pav5088: ho yes this will be fixed in the next beta :)
+# Removee this once it is fixed in the next beta
+mkdir /var/log/argonaut
+touch  /var/log/argonaut/argonaut-server.log
+
+# We need to restart the gosa-si daemon.  
+/etc/init.d/argonaut-server stop
+/etc/init.d/argonaut-server start
+/etc/init.d/argonaut-client-management stop
+/etc/init.d/argonaut-client-management start
+
+# FIXME: start/stop doesn't work yet, so start daemons manually until this is fixed in the next beta.
+/usr/sbin/argonaut-server &
+/usr/sbin/argonaut-client-management &
