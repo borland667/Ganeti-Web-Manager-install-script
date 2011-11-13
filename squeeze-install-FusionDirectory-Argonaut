@@ -64,6 +64,12 @@ sed -i 's@<location name=.*$'\
 mkdir /var/log/argonaut
 touch  /var/log/argonaut/argonaut-server.log
 
+# FIXME : This bugfix won't be required in the next beta :
+# <bilbo-the-hobbit> Pav5088: its easy in sub manage_service : Public { in clientDaemon
+# <bilbo-the-hobbit> Pav5088: replace print "$folder/$exec $action\n";
+# <bilbo-the-hobbit> Pav5088: by system ("$folder/$exec $action\n");
+sed -i 's@print \"\$folder/\$exec@system (\"\$folder/\$exec@' /usr/share/perl5/Argonaut/ClientDaemon.pm
+
 # We need to restart the gosa-si daemon.  
 /etc/init.d/argonaut-server stop
 /etc/init.d/argonaut-server start
