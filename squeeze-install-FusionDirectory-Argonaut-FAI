@@ -42,37 +42,6 @@ read dummy_val
 
 echo "First we install required packages..."
 
-# *** This is info on needed packages I've found online ***
-#        I've marked several packages below with a "!".  These are
-#        the ones I've installed explicitly. "+" - already installed or
-#        perhaps pulled in as dependancies. The mirror related stuff
-#        (goto-fai-backend etc...) isn't installed.
-########################################################################
-# !libgosa-perl (in gosa-perl dir) - build
-# !goto-common - build from the goto sources
-# !recode
-# !goto-fai - build from the goto sources ~ Integrate Fusion Directory and GOto
-#             into FAI chroot
-# fai-backend ~ (Several scripts and daemons to control FAI
-#                            from Fusion Directory)
-# fai-kernels - Obsolete and doesn't exist???
-# use debmirror or dak?  Perhaps choice between large/small.
-# goto-fai-progress = progress bar - this goes on clients?
-# apt-move - Maintain Debian packages in a package pool
-# !fai-server - FAI server package ~
-# +genisoimage - Creates ISO-9660 CD-ROM filesystem images
-# +nfs-kernel-server - Support for NFS kernel server
-# !openbsd-inetd - The OpenBSD Internet Superserver
-# !syslinux-common - Kernel loader which uses a FAT, ext2/3 or iso9660
-# filesystem or PXE network
-# !fai-client - (optional on server) : use if dirinstall is required.
-# (apparently fai-client is NOT optional on server now...  or perhaps
-# it's just "recommended".  In any case apt pulls it in.
-# +gosa-plugin-goto : GOto desktop management plugin :
-# FIXME: How does GOto manage desktops?
-
-# FIXME: Just removed goto-fai-progress because of problems with current distributed version
-#	 For the moment I check it out of trunk further down.
 # FIXME: Need to check the below packages to see if all are still required.
 #        (Things have evolved quite quickly in this package).
 if apt-get install -y --allow-unauthenticated debian-keyring fusiondirectory-plugin-fai fusiondirectory-plugin-fai-schema nfs-kernel-server fai-server syslinux libnet-libidn-perl libio-socket-ssl-perl libnet-ssleay-perl recode libnet-ldap-perl libconvert-asn1-perl hwinfo libhd16 ntp console-tools console-common console-data libconsole atftpd liblog-agent-perl liblockfile-simple-perl rsync debmirror; then
@@ -82,7 +51,7 @@ else
 	exit 1
 fi
 
-apt-get install -y -allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai-ldap argonaut-client-fai argonaut-fai-backend # argonaut-fai-progress
+apt-get install -y -allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai-ldap argonaut-client-fai argonaut-fai-b
 
 # FIXME: The next beta shouldn't require this bugfix.
 sed -i 's@my $base = $ldapinfo->{BASE};@my $base = $ldapinfos->{BASE};@' /usr/sbin/ldap2repository
@@ -135,16 +104,16 @@ echo "<hit enter to continue>"
 read dummy_value
 
 # We next generate a configuration for the debmirror tool, and a cron job to
-# run debmirror.  Both these tasks are achieved using goto's ldap2repository.
+# run debmirror.  Both these tasks are achieved using Argonaut ldap2repository.
 # Below we read your servers default interface.  This is used by
 # ldap2repository to look up your servers mac address, and this in turn helps
 # the script look up the LDAP record for this server which contains the
 # repository information entered into LDAP just before.
 HOST_IP=`hostname --ip`
 net_interface=`ifconfig | awk '/^[a-z]/ { I=$1}; /'$HOST_IP'/ {print(I)}'`
-ldap2repository -r /var/www -p -v -i $net_interface
+ldap2repository -r /var/www -p -v -j -i $net_interface
 
-## FIXME: There is a cronjob /etc/cron.d/goto-fai-backend that runs ldap2repository
+## FIXME: There is a cronjob /etc/cron.d/argonaut-mirror that runs ldap2repository
 ##        daily and on reboot.  This must also call ldap2repository with the switches
 ##        we used above.  Should we instead configure this elsewhere?
 # NOTE: I've removed the -n switch which means obsolete packages get deleted
@@ -240,8 +209,8 @@ LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf 
 echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
 
 # ...then configure our TFTPD server to bind to LDAP as admin.
-sed -i 's@#auth_dn=@auth_dn='$LDAP_ADMIN_DN'@' /etc/argonaut/argonaut-fuse.conf
-sed -i 's@#auth_pwd=@auth_pwd='$LDAP_ADMIN_PW'@' /etc/argonaut/argonaut-fuse.conf
+sed -i 's@#auth_dn=@auth_dn='$LDAP_ADMIN_DN'@' /etc/argonaut-fuse/argonaut-fuse.conf
+sed -i 's@#auth_pwd=@auth_pwd='$LDAP_ADMIN_PW'@' /etc/argonauti-fuse/argonaut-fuse.conf
 
 # We now edit /etc/fai/make-fai-nfsroot.conf and change some variables :
 #-----------------------------------------------------------
@@ -286,7 +255,8 @@ sed -i "s@\$1\$.*\'@"`echo $client_root_pw | mkpasswd -Hmd5 -s`"'@" /etc/fai/mak
 #        NOTE:: My local repo only has 'main', not 'contrib' or 'non-free'
 #               Change this?
 sed -i 's@deb http://.*/debian .*$@deb http://'`hostname --fqdn`'/debian squeeze main\
-deb http://apt.fusiondirectory.org/debian/ squeeze main@' /etc/fai/apt/sources.list
+deb http://repos.fusiondirectory.org/argonaut-beta/ ./\
+deb http://repos.fusiondirectory.org/debian/ stable main@' /etc/fai/apt/sources.list
 # FIXME: Perhaps we should also cache the debian security website?
 sed -i 's@deb http://.*/debian-security .*$@deb http://security.debian.org/ squeeze/updates main@' /etc/fai/apt/sources.list
 
@@ -306,20 +276,6 @@ sed -i 's@cfengine2 libapt-pkg-perl@reprepro argonaut-fai-progress argonaut-comm
 firmware-bnx2@' /etc/fai/NFSROOT
 
 SERVER_IP=`hostname --ip-address`
-
-cat > /etc/gosa-si/client.conf.in <<-EOF
-	[general]
-	log-file = /var/log/gosa-si/gosa-si-client.log
-	pid-file = /var/run/gosa-si/gosa-si-client.pid
-	
-	[client]
-	ip = $SERVER_IP
-	fai-logpath = .
-	
-	[server]
-	key.
-	@@SERVER@@
-EOF
 
 ## FIXME: Unfortunately gosa-si-client isn't in any of the repos yet.
 ##        This is a temp fix...  remove when no longer required :
@@ -496,9 +452,9 @@ ldapadd -H ldaps://127.0.0.1:636 -x -D $LDAP_ADMIN_DN -w $LDAP_ADMIN_PW \
 
 # We need to refresh fts, the "fuse-tftp-supplicant" ie. the daemon
 # that populates the pxelinux.cfg directory for tftp.
-/etc/init.d/fts stop
+/etc/init.d/argonaut-fuse stop
 umount /srv/fai/boot/pxelinux.cfg
-/etc/init.d/fts start
+/etc/init.d/argonaut-fuse start
 
 # FIXME: In Fusion Directory 2.6.7 this is suddenly required...  is it a bug?
 sed -i 's@copyPaste="false"@copyPaste="true"@' /etc/fusiondirectory/fusiondirectory.conf
