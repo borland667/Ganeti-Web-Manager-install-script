@@ -196,7 +196,7 @@ sed -i 's@#\[FAI\]@\[FAI\]@' /etc/argonaut-fuse/argonaut-fuse.conf
 # interactive virtual terminal.  See fai-chboot for documentation on other
 # flags.
 sed -i 's@#fai_flags=verbose,syslogd,reboot vga=0@fai_flags=verbose,syslogd,reboot vga=0@' /etc/argonaut-fuse/argonaut-fuse.conf
-sed -i 's@#nfs_opts=@nfs_opts=@' /etc/argonaut/argonaut-fuse.conf
+sed -i 's@#nfs_opts=@nfs_opts=@' /etc/argonaut-fuse/argonaut-fuse.conf
 sed -i 's@#nfs_root=/srv/fai/nfsroot@nfs_root=/srv/fai/nfsroot@' /etc/argonaut-fuse/argonaut-fuse.conf
 sed -i 's@#union=aufs@union=aufs@' /etc/argonaut-fuse/argonaut-fuse.conf
 
