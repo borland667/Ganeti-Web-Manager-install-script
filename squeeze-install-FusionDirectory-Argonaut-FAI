@@ -51,9 +51,11 @@ else
 	exit 1
 fi
 
-apt-get install -y -allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai-ldap argonaut-client-fai argonaut-fai-b
+apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai-ldap argonaut-client-fai argonaut-fai-backend
 
-# FIXME: The next beta shouldn't require this bugfix.
+# FIXME: The next beta shouldn't require these bugfixes.
+sed -i 's@my (\$localuri) = \$uri =~ .*$@my (\$localuri) = \$uri;@' /usr/sbin/ldap2repository
+sed -i 's@use warning;@use warnings;@' /usr/sbin/ldap2repository
 sed -i 's@my $base = $ldapinfo->{BASE};@my $base = $ldapinfos->{BASE};@' /usr/sbin/ldap2repository
 sed -i 's@my $ldapuris = $ldapinfo->{URIS};@my $ldapuris = $ldapinfos->{URIS};@' /usr/sbin/ldap2repository
 sed -i 's@my $handle = $ldapinfo->{HANDLE};@my $handle = $ldapinfos->{HANDLE};@' /usr/sbin/ldap2repository
@@ -74,16 +76,18 @@ ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/fai.ldif
 sudo -u openldap slapindex
 /etc/init.d/slapd start
 
-# FIXME: Should I restart the fd client and server daemons her?
+# FIXME: Should I restart the fd client and server daemons here?
 
 fusiondirectory-setup --update-cache --update-locales
 
+# FIXME: A local mirror is now not required(?)  Update this instruction
 echo ""
+echo "*** IMPORTANT!! *** - Read, then complete the following :"
 echo "When installing FAI clients speed is critical, therefore you almost"
 echo "certainly need a Debian mirror on your local network.  Fusion Directory"
 echo "stores information on repositories using 'repository service' objects,"
-echo "and this information is used by gosa-si to build/maintain your local"
-echo "repository.  IMPORTANT!!! - Complete the following steps:"
+echo "and this information is used by Argonaut to build/maintain your local"
+echo "repository."
 echo "1) create a server object to represent an Internet apt mirror you want"
 echo "   as your package source (eg. ftp.debian.org).  Then, inside this server"
 echo "   object create a 'Repository service'."
@@ -100,7 +104,7 @@ echo "After you have made these changes an APT repository will be built using"
 echo "this information.  This process will take a LONG time (if you haven't"
 echo "already pre-populated /var/www/debian) as it requires over 30gb to download"
 echo "from the Internet to /var/www/debian.  Be sure you have sufficient space!"
-echo "<hit enter to continue>"
+echo "< *** IMPORTANT!!! *** read and complete the above, then hit enter >"
 read dummy_value
 
 # We next generate a configuration for the debmirror tool, and a cron job to
@@ -184,21 +188,21 @@ sed -i 's@path            = /srv/www/debian@path            = /var/www/debian@' 
 # Deployment Status
 
 ## FIXME: Is there a better place to put configurations than under /srv?
-# Edit [FAI] section and [LDAP] sections in /etc/argonaut/argonaut-fuse.conf
-sed -i 's@#\[FAI\]@\[FAI\]@' /etc/argonaut/argonaut-fuse.conf
+# Edit [FAI] section and [LDAP] sections in /etc/argonaut-fuse/argonaut-fuse.conf
+sed -i 's@#\[FAI\]@\[FAI\]@' /etc/argonaut-fuse/argonaut-fuse.conf
 # FIXME: The following doc doesn't seem to work.  Why?
 # To debug FAI you can add "createvt" and "sshd" to fai_flags.  This will
 # allow sshing to the client during installation, and creation of an
 # interactive virtual terminal.  See fai-chboot for documentation on other
 # flags.
-sed -i 's@#fai_flags=verbose,syslogd,reboot vga=0@fai_flags=verbose,syslogd,reboot vga=0@' /etc/argonaut/argonaut-fuse.conf
+sed -i 's@#fai_flags=verbose,syslogd,reboot vga=0@fai_flags=verbose,syslogd,reboot vga=0@' /etc/argonaut-fuse/argonaut-fuse.conf
 sed -i 's@#nfs_opts=@nfs_opts=@' /etc/argonaut/argonaut-fuse.conf
-sed -i 's@#nfs_root=/srv/fai/nfsroot@nfs_root=/srv/fai/nfsroot@' /etc/argonaut/argonaut-fuse.conf
-sed -i 's@#union=aufs@union=aufs@' /etc/argonaut/argonaut-fuse.conf
+sed -i 's@#nfs_root=/srv/fai/nfsroot@nfs_root=/srv/fai/nfsroot@' /etc/argonaut-fuse/argonaut-fuse.conf
+sed -i 's@#union=aufs@union=aufs@' /etc/argonaut-fuse/argonaut-fuse.conf
 
 # ...and in the [LDAP] section :
 # FIXME: What auth_dn do we need to set here, and do we need to
-# modify the fts.conf file permissions for security purposes.
+# modify the argonaut-fuse.conf file permissions for security purposes.
 # I THINK this is set only if auths are required for LDAP connections(???)
 # Benoit sets this to the LDAP admin user/pass, so that's what I've done.
 # We first get our admin dn and password from fusiondirectory.conf (these vars
@@ -210,7 +214,7 @@ echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.co
 
 # ...then configure our TFTPD server to bind to LDAP as admin.
 sed -i 's@#auth_dn=@auth_dn='$LDAP_ADMIN_DN'@' /etc/argonaut-fuse/argonaut-fuse.conf
-sed -i 's@#auth_pwd=@auth_pwd='$LDAP_ADMIN_PW'@' /etc/argonauti-fuse/argonaut-fuse.conf
+sed -i 's@#auth_pwd=@auth_pwd='$LDAP_ADMIN_PW'@' /etc/argonaut-fuse/argonaut-fuse.conf
 
 # We now edit /etc/fai/make-fai-nfsroot.conf and change some variables :
 #-----------------------------------------------------------
@@ -225,7 +229,7 @@ sed -i 's@FAI_DEBOOTSTRAP=".*"@FAI_DEBOOTSTRAP="squeeze http://'`hostname --fqdn
 # option so make-fai-nfsroot will scan this directory for hook scripts.
 sed -i 's@#NFSROOT_HOOKS=@NFSROOT_HOOKS=@' /etc/fai/make-fai-nfsroot.conf
 
-## Another potentially useful make-fai-nfsroot options? :
+## Extra make-fai-nfsroot options which you may find useful :
 # NFSROOT_ETC_HOSTS - This is /etc/hosts style entry/s containing host/s
 # important for client machines eg. the Debian mirror, Beowulf master 
 # node addrs etc...  This variable can contain multiple lines if required.
@@ -277,8 +281,8 @@ firmware-bnx2@' /etc/fai/NFSROOT
 
 SERVER_IP=`hostname --ip-address`
 
-## FIXME: Unfortunately gosa-si-client isn't in any of the repos yet.
-##        This is a temp fix...  remove when no longer required :
+## FIXME: These instructions are old, but perhaps useful for showing a way
+##        to install custom packages :
 ## We set up the gosa-si packages in a file-based repository in the new
 ## NFSROOT, and arrange a FAI hook script to add this repo and install
 ## the packages from it.
@@ -301,9 +305,16 @@ SERVER_IP=`hostname --ip-address`
 #echo '$ROOTCMD apt-get update
 #$ROOTCMD apt-get --allow-unauthenticated -qq install gosa-si-common gosa-si-client' > /#etc/fai/nfsroot-hooks/01-install-gosa-si-client
 
+# FIXME: Bug workaround:
+# <pav5088> bilbo-the-hobbit, I'm running "make-fai-nfsroot -v" and I get the
+#           following error :
+# <pav5088> nfsroot-hooks/fusiondirectory: Copy argonaut.conf and ldap.conf
+# <pav5088> cp: cannot stat `/etc/ldap/ldap-fai.conf': No such file or directory
+# <bilbo-the-hobbit> pav5088: just do a symlink from you ldap.conf
+# <bilbo-the-hobbit> pav5088: will correct that
+ln -s /etc/ldap/ldap.conf /etc/ldap/ldap-fai.conf
+
 # Create fai NFSROOT.  Run with -v for verbose output.
-# FIXME: The -U is a bug workaround. Without -U a buggy make-fai-nfsroot
-# won't generate an initrd in Squeeze.  Testing...  remove this afterwards.
 make-fai-nfsroot -v
 # Log file written to /var/log/fai/make-fai-nfsroot.log
 
@@ -327,7 +338,10 @@ elif [ "$NETWORK_CONFIG" = "2" ]; then
 elif [ "$NETWORK_CONFIG" = "3" ]; then
     NETWORK_CONFIG="*"
 fi
-echo "/srv/fai/nfsroot "$NETWORK_CONFIG"(async,ro,no_subtree_check,root_squash)" >> /etc/exports
+
+# FIXME: I THINK an entry gets created in /var/lib/nfs/etab without a need
+#        for the following comand :
+# echo "/srv/fai/nfsroot "$NETWORK_CONFIG"(async,ro,no_subtree_check,root_squash)" >> /etc/exports
 exportfs -a
 
 
@@ -447,8 +461,8 @@ ldapadd -H ldaps://127.0.0.1:636 -x -D $LDAP_ADMIN_DN -w $LDAP_ADMIN_PW \
 # time.  Check /var/log/gosa-si-server.log to see when the db files have
 # been built.  (It should take around 5-10 minutes).
 
-/etc/init.d/gosa-si-server restart
-/etc/init.d/gosa-si-client restart
+/etc/init.d/argonaut-server restart
+/etc/init.d/argonaut-client-management restart
 
 # We need to refresh fts, the "fuse-tftp-supplicant" ie. the daemon
 # that populates the pxelinux.cfg directory for tftp.
@@ -459,20 +473,12 @@ umount /srv/fai/boot/pxelinux.cfg
 # FIXME: In Fusion Directory 2.6.7 this is suddenly required...  is it a bug?
 sed -i 's@copyPaste="false"@copyPaste="true"@' /etc/fusiondirectory/fusiondirectory.conf
 # FIXME: The apache restart is probably is not required, but I've put it in anyway.  Find out one way or the other.
-update-gosa
+fusiondirectory-setup --update-cache --update-locales
 /etc/init.d/apache2 restart
-
-# FIXME: Due to a bug this file can't be accessed (has permissions of 600)
-#        These permissions are BAD though...  :-/
-chmod 644 /srv/fai/nfsroot/live/filesystem.dir/etc/gosa-si/client.conf
 
 # FIXME: We need to give some further instruction on using FAI /w Fusion
 #        Directory here.
-# FIXME: Remove the following nasty bug alert after it's fixed.
-echo "BUG ALERT!!!"
-echo "You will need to edit /usr/sbin/gosa-si-server and insert this line:"
-echo '"ldap-server-dn"        => [\$ldap_server_dn, "<put your ldap server dn here>"],'
-echo "Search for ldap-base and insert this line there.  This is a nasty bug workaround."
+
 echo ""
 echo "Be sure your DNS server is up to date with what is in LDAP by executing :"
 echo "ldap2bind"
