@@ -68,7 +68,7 @@ touch  /var/log/argonaut/argonaut-server.log
 # <bilbo-the-hobbit> Pav5088: its easy in sub manage_service : Public { in clientDaemon
 # <bilbo-the-hobbit> Pav5088: replace print "$folder/$exec $action\n";
 # <bilbo-the-hobbit> Pav5088: by system ("$folder/$exec $action\n");
-sed -i 's@print \"\$folder/\$exec@system (\"\$folder/\$exec@' /usr/share/perl5/Argonaut/ClientDaemon.pm
+sed -i 's@print \"\$folder/\$exec@system \"\$folder/\$exec@' /usr/share/perl5/Argonaut/ClientDaemon.pm
 
 # We need to restart the gosa-si daemon.  
 /etc/init.d/argonaut-server stop
