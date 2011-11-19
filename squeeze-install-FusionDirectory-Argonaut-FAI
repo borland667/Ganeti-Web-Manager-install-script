@@ -51,7 +51,7 @@ else
 	exit 1
 fi
 
-apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai-ldap argonaut-client-fai argonaut-fai-backend
+apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai argonaut-client-fai argonaut-fai-backend
 
 # FIXME: The next beta shouldn't require these bugfixes.
 sed -i 's@my (\$localuri) = \$uri =~ .*$@my (\$localuri) = \$uri;@' /usr/sbin/ldap2repository
