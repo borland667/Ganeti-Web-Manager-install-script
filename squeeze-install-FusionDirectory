@@ -415,21 +415,6 @@ echo "
 	## for "loglevel"  Keep in mind - logging effects performance!
 	#loglevel 1024
 
-## FIXME: Once ldifs are bundled with Fusion Directory this can go...
-#if [ -f /etc/ldap/schema/fusiondirectory/samba3.ldif ]; then
-#	echo "Adding schemas to LDAP tree..."
-#else
-#	echo "Hopefully ldif versions of schemas will be packaged soon,"
-#	echo "but until this happens you will need to create these by hand."
-#	echo "You could use slaptest, or the schema2bcldif.sh script, e.g.:"
-#	echo "    cd /etc/ldap/schema/fusiondirectory"
-#	echo "    for i in *.schema; do"
-#	echo '        /usr/local/bin/schema2bcldif "$i" > ${i/schema/ldif}'
-#	echo '    done'
-#	echo "Please create ldif versions of all schemas in"
-#	echo "/etc/ldap/schema/fusiondirectory and hit <enter> to continue..."
-#	read dummy
-#fi
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/samba.ldif
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/trust.ldif
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gosystem.ldif
@@ -439,14 +424,6 @@ ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gosa-samba3
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gofax.ldif
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/goserver.ldif
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/goto-mime.ldif
-## FIXME: Should this really be commented out...  This ldif is no longer installed
-##        by default.
-#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/hdb.ldif
-
-## FIXME: Update for cn=config...  Is this even required?
-#  sed -i 's@^include.*/etc/ldap/schema/gosa/goto-mime.schema'\
-#'@include         /etc/ldap/schema/gosa/goto-mime.schema\
-#include         /etc/ldap/schema/gosa/hdb.schema@' /etc/ldap/slapd.conf
 
 # Configure indexes to make accessing LDAP more efficient
 # FIXME: Document what these indexes are for.
