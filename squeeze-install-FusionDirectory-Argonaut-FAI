@@ -33,8 +33,8 @@ if [ ! -f /etc/argonaut/argonaut.conf ]; then
 fi
 
 echo ""
-echo "WARNING!!!  You will need to put an apt repository in /var/www/debian"
-echo "This script will try to do this for you, but a repo is more than 30"
+echo "WARNING!!!  You may decide to put an apt repository in /var/www/debian"
+echo "This script can try to do this for you, but a repo is more than 30"
 echo "gigabytes and will take eg. 3 days on a 1.5mb connection.  You may want"
 echo "to do this by hand BEFORE running this script.  Hit Ctrl-C to quit, or"
 echo "<enter> to continue anyway..."
@@ -55,20 +55,13 @@ apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsr
 
 # FIXME: The next beta shouldn't require these bugfixes.
 sed -i 's@my (\$localuri) = \$uri =~ .*$@my (\$localuri) = \$uri;@' /usr/sbin/ldap2repository
-sed -i 's@use warning;@use warnings;@' /usr/sbin/ldap2repository
-sed -i 's@my $base = $ldapinfo->{BASE};@my $base = $ldapinfos->{BASE};@' /usr/sbin/ldap2repository
-sed -i 's@my $ldapuris = $ldapinfo->{URIS};@my $ldapuris = $ldapinfos->{URIS};@' /usr/sbin/ldap2repository
-sed -i 's@my $handle = $ldapinfo->{HANDLE};@my $handle = $ldapinfos->{HANDLE};@' /usr/sbin/ldap2repository
 
 if [ -f /etc/ldap/schema/fusiondirectory/fai.ldif ]; then
 	echo "Adding schemas to LDAP tree..."
 else
-	echo "Hopefully ldif versions of schemas will be packaged soon,"
-	echo "but until this happens you will need to create these by hand."
-	echo "You could use slaptest, or the schema2bcldif.sh script."
-	echo "Please create ldif versions of all schemas in"
-	echo "/etc/ldap/schema/fusiondirectory and hit <enter> to continue..."
-	read dummy
+	echo "The file /etc/ldap/schema/fusiondirectory/fai.ldif does"
+        echo "not exist.  Something is very wrong.  Exiting..."
+        exit 1
 fi
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/fai.ldif
 # FIXME: Should any indexes be added here?
@@ -80,14 +73,13 @@ sudo -u openldap slapindex
 
 fusiondirectory-setup --update-cache --update-locales
 
-# FIXME: A local mirror is now not required(?)  Update this instruction
 echo ""
 echo "*** IMPORTANT!! *** - Read, then complete the following :"
-echo "When installing FAI clients speed is critical, therefore you almost"
-echo "certainly need a Debian mirror on your local network.  Fusion Directory"
-echo "stores information on repositories using 'repository service' objects,"
-echo "and this information is used by Argonaut to build/maintain your local"
-echo "repository."
+echo "You will need to let FusionDirectory know about at least one Debian"
+echo "mirror, and you may decide to configure an additional"
+echo "FusionDirectory-controlled Debian mirror on your local network. Fusion"
+echo "Directory stores information on repositories using 'repository service'"
+echo "objects."
 echo "1) create a server object to represent an Internet apt mirror you want"
 echo "   as your package source (eg. ftp.debian.org).  Then, inside this server"
 echo "   object create a 'Repository service'."
@@ -96,7 +88,8 @@ echo "   Release: squeeze"
 echo "   URL: <the URL of your chosen source repository>"
 echo "   Sections: main (you may want 'contrib' and 'non-free' in here also)"
 echo "   Leave 'Parent server' blank"
-echo "2) On the server object representing THIS machine : create a repository"
+echo "2) Optionally:
+echo "   On the server object representing THIS machine : create a repository"
 echo "   service with the external server as its parent. Populate 'Release'"
 echo "   and 'Sections' as above, and a valid URL for this machine ie.:"
 echo "   http://"`hostname --fqdn`"/debian"

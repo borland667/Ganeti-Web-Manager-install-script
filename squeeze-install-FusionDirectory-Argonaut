@@ -27,8 +27,6 @@ fi
 
 # NOTE:: We install argonaut-client as well as the server because both 
 # Fusion Directory and the infrastructure we're controlling are on the one box.
-# FIXME: the gosa-si-client package optionally suggests goto-fai-progress and
-# gosa-si-client-krb5.  If and when should we use these?
 
 apt-get -y --allow-unauthenticated install argonaut-client-management argonaut-server argonaut-common 
 
@@ -58,24 +56,8 @@ sed -i 's@<location name=.*$'\
 '@&\n'\
 '              argonautServer="http://'$HOST_IP':8080"@' /etc/fusiondirectory/fusiondirectory.conf
 
-# FIXME : <Pav5088> ...and it looks like I might have to create a log file also.
-#         <bilbo-the-hobbit> Pav5088: ho yes this will be fixed in the next beta :)
-# Removee this once it is fixed in the next beta
-mkdir /var/log/argonaut
-touch  /var/log/argonaut/argonaut-server.log
-
-# FIXME : This bugfix won't be required in the next beta :
-# <bilbo-the-hobbit> Pav5088: its easy in sub manage_service : Public { in clientDaemon
-# <bilbo-the-hobbit> Pav5088: replace print "$folder/$exec $action\n";
-# <bilbo-the-hobbit> Pav5088: by system ("$folder/$exec $action\n");
-sed -i 's@print \"\$folder/\$exec@system \"\$folder/\$exec@' /usr/share/perl5/Argonaut/ClientDaemon.pm
-
-# We need to restart the gosa-si daemon.  
+# We need to restart the argonaut daemon.  
 /etc/init.d/argonaut-server stop
 /etc/init.d/argonaut-server start
 /etc/init.d/argonaut-client-management stop
 /etc/init.d/argonaut-client-management start
-
-# FIXME: start/stop doesn't work yet, so start daemons manually until this is fixed in the next beta.
-/usr/sbin/argonaut-server &
-/usr/sbin/argonaut-client-management &
