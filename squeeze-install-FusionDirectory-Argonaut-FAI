@@ -144,7 +144,7 @@ echo ""
 echo "Do you want to update a local repository now? You can do this later by"
 echo "executing the following cron script manually :"
 echo "/etc/argonaut/fai/mirror-update-cronjob )."
-echo "NOTE: This script won't have been created if you didn't configure a local"
+echo "NOTE: This step isn't required if you didn't configure a local"
 echo "repository."
 echo "Run mirror-update? y or n, then hit <enter> to continue..."
 read repo_choice
