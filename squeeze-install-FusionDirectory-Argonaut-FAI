@@ -226,6 +226,8 @@ sed -i 's@FAI_DEBOOTSTRAP=".*"@FAI_DEBOOTSTRAP="squeeze http://'`hostname --fqdn
 # option so make-fai-nfsroot will scan this directory for hook scripts.
 sed -i 's@#NFSROOT_HOOKS=@NFSROOT_HOOKS=@' /etc/fai/make-fai-nfsroot.conf
 
+sed -i 's@TFTPROOT=/srv/tftp/fai@TFTPROOT=/srv/tftp@' /etc/fai/make-fai-nfsroot.conf
+
 ## Extra make-fai-nfsroot options which you may find useful :
 # NFSROOT_ETC_HOSTS - This is /etc/hosts style entry/s containing host/s
 # important for client machines eg. the Debian mirror, Beowulf master 
@@ -244,6 +246,7 @@ echo ""
 echo "Please enter a root password for use on FAI clients : "
 read client_root_pw
 sed -i "s@\$1\$.*\'@"`echo $client_root_pw | mkpasswd -Hmd5 -s`"'@" /etc/fai/make-fai-nfsroot.conf
+
 #-------------------------------------------------------------
 
 # make-fai-nfsroot needs to know where to install packages from.
@@ -476,6 +479,7 @@ fusiondirectory-setup --update-cache --update-locales
 # FIXME: We need to give some further instruction on using FAI /w Fusion
 #        Directory here.
 
+echo "!!!IMPORTANT INSTRUCTIONS!!!"
 echo ""
 echo "Be sure your DNS server is up to date with what is in LDAP by executing :"
 echo "ldap2bind"
@@ -488,8 +492,8 @@ echo "                          ntp service.  This isn't required. Debian hosts 
 echo "				eg. 0.debian.pool.ntp.org  (servers numbered 0 to 4)"
 echo "   * LDAP service"
 echo "   * DNS service"
-echo "   * DHCP service - In the Bootup configuration add fai/pxelinux.0 as the boot"
-echo "                    filename."
+echo "   * DHCP service - In the Bootup configuration add pxelinux.0 as the boot"
+echo "                    filename, and your servername as 'next server'."
 
 # Troubleshooting: Check out the LOGUSER variable in /etc/fai/fai.conf on your server.
 #
