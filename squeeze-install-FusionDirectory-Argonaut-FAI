@@ -51,7 +51,7 @@ else
 	exit 1
 fi
 
-apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai argonaut-client-fai argonaut-fai-backend
+apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai argonaut-client-fai
 
 # FIXME: The next beta shouldn't require these bugfixes.
 sed -i 's@my (\$localuri) = \$uri =~ .*$@my (\$localuri) = \$uri;@' /usr/sbin/ldap2repository
@@ -101,23 +101,26 @@ echo "from the Internet to /var/www/debian.  Be sure you have sufficient space!"
 echo "< *** IMPORTANT!!! *** read and complete the above, then hit enter >"
 read dummy_value
 
-# We next generate a configuration for the debmirror tool, and a cron job to
-# run debmirror.  Both these tasks are achieved using Argonaut ldap2repository.
-# Below we read your servers default interface.  This is used by
-# ldap2repository to look up your servers mac address, and this in turn helps
-# the script look up the LDAP record for this server which contains the
-# repository information entered into LDAP just before.
-HOST_IP=`hostname --ip`
-net_interface=`ifconfig | awk '/^[a-z]/ { I=$1}; /'$HOST_IP'/ {print(I)}'`
-ldap2repository -r /var/www -p -v -j -i $net_interface
+# Configure the ldap2repository tool.  ldap2repository creates a cron job to
+# run debmirror daily using repo information in LDAP.
+sed -i 's@mirrordir   = /srv/www/debian@mirrordir   = /var/www@' /etc/argonaut/argonaut.conf
+sed -i 's@verbose     = no@verbose     = yes@' /etc/argonaut/argonaut.conf
+sed -i 's@cleanup     = no@cleanup     = yes@' /etc/argonaut/argonaut.conf
 
-## FIXME: There is a cronjob /etc/cron.d/argonaut-mirror that runs ldap2repository
-##        daily and on reboot.  This must also call ldap2repository with the switches
-##        we used above.  Should we instead configure this elsewhere?
-# NOTE: I've removed the -n switch which means obsolete packages get deleted
-#       from the repository.  This makes the repo smaller, but could cause
-#       problems if a client tries to install a recently deleted package.
-sed -i 's@ldap2repository -n -p@ldap2repository -r /var/www -p -i '$net_interface'@' /etc/cron.d/argonaut-fai-backend
+# This path will be used to generate a package list from our mirror for the
+# FusionDirectory FAI/Deployment GUI.
+# FIXME: How do we do this for a remote machine?
+sed -i 's@path            = /srv/www/debian@path            = /var/www/debian@' /etc/argonaut/argonaut.conf
+
+# FIXME: This once was required, but probably isn't now.  Leave until confirmed.
+## Below we read your servers default interface.  This is used by
+## ldap2repository to look up your servers mac address, and this in turn helps
+## the script look up the LDAP record for this server which contains the
+## repository information entered into LDAP just before.
+#HOST_IP=`hostname --ip`
+#net_interface=`ifconfig | awk '/^[a-z]/ { I=$1}; /'$HOST_IP'/ {print(I)}'`
+#sed -i 's@^interface.*=.*$@interface   = '$net_interface'@' /etc/argonaut/argonaut.conf
+#sed -i 's@^server_ip.*= .*$@server_ip   = '$HOST_IP'@' /etc/argonaut/argonaut.conf
 
 # We also need an Apache configuration to make this repository accessible.
 cat > /etc/apache2/sites-available/debmirror <<-EOF
@@ -137,7 +140,7 @@ a2ensite debmirror
 gpg --keyring /usr/share/keyrings/debian-archive-keyring.gpg --export \
  | gpg --no-default-keyring --keyring trustedkeys.gpg --import
 
-# The cron script to create the mirror lives in /etc/fusiondirectory/fai/ .
+# The cron script to create the mirror lives in /etc/argonaut/fai/ .
 # FIXME: Are default permissions OK for this file?
 # !!!DOWNLOADING WILL PROBABLY TAKE A LOOOOOONG TIME IF YOU START FROM SCRATCH!!!
 echo ""
