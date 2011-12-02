@@ -496,9 +496,16 @@ echo "				eg. 0.debian.pool.ntp.org  (servers numbered 0 to 4)"
 echo "   * LDAP service"
 echo "   * DNS service"
 echo "   * DHCP service - In the Bootup configuration add pxelinux.0 as the boot"
-echo "                    filename, and your servername as 'next server'."
+echo "                    filename, and "`hostname --fqdn`" as 'next server'."
 
-# Troubleshooting: Check out the LOGUSER variable in /etc/fai/fai.conf on your server.
+# Debugging info :
+# To see if your package lists are being create go to 
+# /var/cache/argonaut/packages/my.localmirror.org/debian/dists/squeeze
+# (where my.localmirror.org is your local mirror).
+# FIXME: Is this true? ==> This directory is created by the argonaut-server
+#        daemon, and will take a few minutes (perhaps 2-5mins) to generate.
+
+# Troubleshooting FAI: Check out the LOGUSER variable in /etc/fai/fai.conf on your server.
 #
 # You must create a user eg. fai, and create an rhosts file to allow the root user
 # on client machines to access this user without a password. Example of
