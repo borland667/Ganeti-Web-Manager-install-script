@@ -112,7 +112,13 @@ sed -i 's@cleanup     = no@cleanup     = yes@' /etc/argonaut/argonaut.conf
 # FIXME: How do we do this for a remote machine?
 sed -i 's@path            = /srv/www/debian@path            = /var/www/debian@' /etc/argonaut/argonaut.conf
 
+# Generate cron job for debmirror
 /usr/sbin/ldap2repository
+
+# We need to restart argonaut-server to generate a package list from
+# our repository...  otherwise we have to wait 24 hours.
+/etc/init.d/argonaut-server stop
+/etc/init.d/argonaut-server start
 
 # FIXME: This once was required, but probably isn't now.  Leave until confirmed.
 ## Below we read your servers default interface.  This is used by
@@ -481,6 +487,7 @@ sed -i 's@copyPaste="false"@copyPaste="true"@' /etc/fusiondirectory/fusiondirect
 # FIXME: The apache restart is probably is not required, but I've put it in anyway.  Find out one way or the other.
 fusiondirectory-setup --update-cache --update-locales
 /etc/init.d/apache2 restart
+
 
 # FIXME: We need to give some further instruction on using FAI /w Fusion
 #        Directory here.
