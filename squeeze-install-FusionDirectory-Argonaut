@@ -58,6 +58,7 @@ sed -i 's@<location name=.*$'\
 
 # Enable argonaut daemon
 sed -i 's@START_SERVER=0@START_SERVER=1@' /etc/default/argonaut-server
+sed -i 's@START_CLIENT=0@START_CLIENT=1@' /etc/default/argonaut-client-management
 
 # We need to restart the argonaut daemon.  
 /etc/init.d/argonaut-server stop
@@ -65,5 +66,3 @@ sed -i 's@START_SERVER=0@START_SERVER=1@' /etc/default/argonaut-server
 /etc/init.d/argonaut-client-management stop
 /etc/init.d/argonaut-client-management start
 
-# FIXME: I THINK the argonaut-client-management server still isn't working yet, so run it manually
-/usr/sbin/argonaut-client-management &
