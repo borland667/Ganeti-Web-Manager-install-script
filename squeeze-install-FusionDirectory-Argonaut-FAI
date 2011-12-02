@@ -112,6 +112,8 @@ sed -i 's@cleanup     = no@cleanup     = yes@' /etc/argonaut/argonaut.conf
 # FIXME: How do we do this for a remote machine?
 sed -i 's@path            = /srv/www/debian@path            = /var/www/debian@' /etc/argonaut/argonaut.conf
 
+/usr/sbin/ldap2repository
+
 # FIXME: This once was required, but probably isn't now.  Leave until confirmed.
 ## Below we read your servers default interface.  This is used by
 ## ldap2repository to look up your servers mac address, and this in turn helps
@@ -137,6 +139,7 @@ EOF
 a2ensite debmirror
 
 # The debmirror command should verify our mirror
+gpg --list-keys
 gpg --keyring /usr/share/keyrings/debian-archive-keyring.gpg --export \
  | gpg --no-default-keyring --keyring trustedkeys.gpg --import
 
@@ -470,7 +473,7 @@ ldapadd -H ldaps://127.0.0.1:636 -x -D $LDAP_ADMIN_DN -w $LDAP_ADMIN_PW \
 # We need to refresh fts, the "fuse-tftp-supplicant" ie. the daemon
 # that populates the pxelinux.cfg directory for tftp.
 /etc/init.d/argonaut-fuse stop
-umount /srv/fai/boot/pxelinux.cfg
+umount /srv/fai/pxelinux.cfg
 /etc/init.d/argonaut-fuse start
 
 # FIXME: In Fusion Directory 2.6.7 this is suddenly required...  is it a bug?
