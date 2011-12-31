@@ -3,9 +3,7 @@
 #| Script to install and configure Fusion Directory and supporting software in a
 #| Debian Squeeze environment.
 #|
-#| WARNING:: This script is very new and experimental.  At this stage
-#| it's more intended as documenation that can be easily verified for
-#| correctness by running on a test machine.  It would be best to use this
+#| WARNING::  This script is experimental.  It would be best to use this
 #| script as documentation and perhaps cut/paste and run small sections.
 #| It assumes an LDAP server will be newly installed on the same box as Fusion
 #| Directory.
@@ -157,6 +155,11 @@ echo -e "expose_php = Off\nmemory_limit = 128M" > /etc/php5/apache2/conf.d/fusio
 #| LOOOONG explanation :
 #'------------------------------------------------------------------------------
 
+# FIXME: TLS is obsolete.  We should encrypt connections differently. A pointer from IRC:
+# <pav5088> How does one enforce an encrypted connection to OpenLDAP (other than insisting on an ldaps:// connection?).
+# <pav5088> I guess ldaps is depricated?
+# <hyc> see the "security" and "requires" directives in slapd.conf(5)
+
 #!!!! BEGIN EXPLANATION OF PUBLIC-KEY CRYPTOGRAPHY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #!
 #! Cryptography is the science of encoding messages so they are hopefully
@@ -175,7 +178,7 @@ echo -e "expose_php = Off\nmemory_limit = 128M" > /etc/php5/apache2/conf.d/fusio
 #! Once used by Julius Caesar to send messages to his generals it is now often
 #! used by children to send secret messages.  It involves shifting each
 #! letter of a message a fixed number of positions down the alphabet.  eg.
-#! for a shift of three "A" would be replaced by "D", "B" would become "E",
+#! for a shift of three : "A" would be replaced by "D", "B" would become "E",
 #! "message" would become "phvvdjh" etc.  This kind of algorithm is called
 #! "symmetric" because the "key" (ie. number) used to decrypt the message is
 #! closely related and often identical to the key used to encrypt. In our
@@ -187,7 +190,7 @@ echo -e "expose_php = Off\nmemory_limit = 128M" > /etc/php5/apache2/conf.d/fusio
 #!
 #! "Asymmetric" algorithms on the other hand rely on some very strange
 #! mathematics(*) - the number used to decrypt a message is very difficult (and
-#! hopefully just about impossible) to discover even when you know the
+#! hopefully practically impossible) to discover even when someone knows the
 #! number used to encrypt it.  It's not important to understand the maths,
 #! but it IS important to understand the useful implication - our messages are
 #! kept secret even if the world knows our encryption key!  We can share
@@ -202,7 +205,8 @@ echo -e "expose_php = Off\nmemory_limit = 128M" > /etc/php5/apache2/conf.d/fusio
 #! encrypted messages, but they need to be sure the public key really belongs
 #! to us.  There are two concepts that are useful for this - digital signatures
 #! and certificates.  Just as in the real world signatures can be used to sign
-#! certificates.
+#! certificates, and I will explain these two concepts in the following
+#! paragraphs.
 #!
 #! Digital signatures : In real life a signature on some information means the
 #! owner of the signature approved the information.  To digitally "sign"
