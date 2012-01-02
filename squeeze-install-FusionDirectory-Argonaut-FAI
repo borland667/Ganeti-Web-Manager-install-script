@@ -198,16 +198,16 @@ sed -i 's@path            = /srv/www/debian@path            = /var/www/debian@' 
 
 ## FIXME: Is there a better place to put configurations than under /srv?
 # Edit [FAI] section and [LDAP] sections in /etc/argonaut-fuse/argonaut-fuse.conf
-sed -i 's@#\[FAI\]@\[FAI\]@' /etc/argonaut-fuse/argonaut-fuse.conf
+sed -i 's@#\[FAI\]@\[FAI\]@' /etc/argonaut/argonaut-fuse.conf
 # FIXME: The following doc doesn't seem to work.  Why?
 # To debug FAI you can add "createvt" and "sshd" to fai_flags.  This will
 # allow sshing to the client during installation, and creation of an
 # interactive virtual terminal.  See fai-chboot for documentation on other
 # flags.
-sed -i 's@#fai_flags=verbose,syslogd,reboot vga=0@fai_flags=verbose,syslogd,reboot vga=0@' /etc/argonaut-fuse/argonaut-fuse.conf
-sed -i 's@#nfs_opts=@nfs_opts=@' /etc/argonaut-fuse/argonaut-fuse.conf
-sed -i 's@#nfs_root=/srv/fai/nfsroot@nfs_root=/srv/fai/nfsroot@' /etc/argonaut-fuse/argonaut-fuse.conf
-sed -i 's@#union=aufs@union=aufs@' /etc/argonaut-fuse/argonaut-fuse.conf
+sed -i 's@#fai_flags=verbose,syslogd,reboot vga=0@fai_flags=verbose,syslogd,reboot vga=0@' /etc/argonaut/argonaut-fuse.conf
+sed -i 's@#nfs_opts=@nfs_opts=@' /etc/argonaut/argonaut-fuse.conf
+sed -i 's@#nfs_root=/srv/fai/nfsroot@nfs_root=/srv/fai/nfsroot@' /etc/argonaut/argonaut-fuse.conf
+sed -i 's@#union=aufs@union=aufs@' /etc/argonaut/argonaut-fuse.conf
 
 # ...and in the [LDAP] section :
 # FIXME: What auth_dn do we need to set here, and do we need to
@@ -222,8 +222,8 @@ LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf 
 echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
 
 # ...then configure our TFTPD server to bind to LDAP as admin.
-sed -i 's@#auth_dn=@auth_dn='$LDAP_ADMIN_DN'@' /etc/argonaut-fuse/argonaut-fuse.conf
-sed -i 's@#auth_pwd=@auth_pwd='$LDAP_ADMIN_PW'@' /etc/argonaut-fuse/argonaut-fuse.conf
+sed -i 's@#auth_dn=@auth_dn='$LDAP_ADMIN_DN'@' /etc/argonaut/argonaut-fuse.conf
+sed -i 's@#auth_pwd=@auth_pwd='$LDAP_ADMIN_PW'@' /etc/argonaut/argonaut-fuse.conf
 
 # We now edit /etc/fai/make-fai-nfsroot.conf and change some variables :
 #-----------------------------------------------------------
