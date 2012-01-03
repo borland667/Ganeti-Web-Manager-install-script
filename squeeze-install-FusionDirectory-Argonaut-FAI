@@ -240,6 +240,9 @@ sed -i 's@#NFSROOT_HOOKS=@NFSROOT_HOOKS=@' /etc/fai/make-fai-nfsroot.conf
 
 sed -i 's@TFTPROOT=/srv/tftp/fai@TFTPROOT=/srv/tftp@' /etc/fai/make-fai-nfsroot.conf
 
+# We need make-fai-nfsroot to copy an LDAP configuration to our FAI client.
+echo "FAI_LDAP=/etc/ldap/ldap.conf" >> /etc/fai/make-fai-nfsroot.conf
+
 ## Extra make-fai-nfsroot options which you may find useful :
 # NFSROOT_ETC_HOSTS - This is /etc/hosts style entry/s containing host/s
 # important for client machines eg. the Debian mirror, Beowulf master 
@@ -351,9 +354,9 @@ elif [ "$NETWORK_CONFIG" = "3" ]; then
     NETWORK_CONFIG="*"
 fi
 
-# FIXME: I THINK an entry gets created in /var/lib/nfs/etab without a need
-#        for the following comand :
-# echo "/srv/fai/nfsroot "$NETWORK_CONFIG"(async,ro,no_subtree_check,root_squash)" >> /etc/exports
+# FIXME: I made a note about an entry created in /var/lib/nfs/etab without a need
+#        for the following comand(???)  Find any info on this? :
+echo "/srv/fai/nfsroot "$NETWORK_CONFIG"(async,ro,no_subtree_check,root_squash)" >> /etc/exports
 exportfs -a
 
 
