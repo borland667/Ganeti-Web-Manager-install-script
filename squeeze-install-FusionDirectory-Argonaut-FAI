@@ -240,9 +240,6 @@ sed -i 's@#NFSROOT_HOOKS=@NFSROOT_HOOKS=@' /etc/fai/make-fai-nfsroot.conf
 
 sed -i 's@TFTPROOT=/srv/tftp/fai@TFTPROOT=/srv/tftp@' /etc/fai/make-fai-nfsroot.conf
 
-# We need make-fai-nfsroot to copy an LDAP configuration to our FAI client.
-echo "FAI_LDAP=/etc/ldap/ldap.conf" >> /etc/fai/make-fai-nfsroot.conf
-
 ## Extra make-fai-nfsroot options which you may find useful :
 # NFSROOT_ETC_HOSTS - This is /etc/hosts style entry/s containing host/s
 # important for client machines eg. the Debian mirror, Beowulf master 
@@ -282,14 +279,15 @@ sed -i 's@deb http://.*/debian-security .*$@deb http://security.debian.org/ sque
 # /etc/fai/NFSROOT contains instructions for building the root filesystem the
 # FAI client systems will use.  We've added the non-free Broadcom firmware
 # to the list of packages to be installed. We also install a few extra Fusion
-# Directory related packages which allow (for example) pulling FAI
-# configuration from LDAP instead of an NFS filesystem on the server, and
-# adding a FAI progress bar.
+# Directory related packages which allow (for example) argonaut-fai-client for
+# pulling FAI configuration from LDAP instead of an NFS filesystem on the
+# server.  I've left argonaut-progress commented out for debugging purposes.
+# This package adds a FAI progress bar, and hides what's happening.
 sed -i 's@liblinux-lvm-perl@liblinux-lvm-perl\
 rsyslog dialog gawk bind9-host libpci2 ldap-utils\
 vim psmisc debootstrap@' /etc/fai/NFSROOT
 sed -i 's@# needed for the simple examples@# needed for the Fusion Directory integration@' /etc/fai/NFSROOT
-sed -i 's@cfengine2 libapt-pkg-perl@reprepro argonaut-fai-progress argonaut-common argonaut-client-fai libdatetime-perl locales-all gettext\
+sed -i 's@cfengine2 libapt-pkg-perl@reprepro libdatetime-perl locales-all gettext argonaut-common argonaut-fai-client # argonaut-fai-progress\
 \
 # needed for non-free broadcom firmware\
 firmware-bnx2@' /etc/fai/NFSROOT
@@ -328,6 +326,14 @@ SERVER_IP=`hostname --ip-address`
 # <bilbo-the-hobbit> pav5088: just do a symlink from you ldap.conf
 # <bilbo-the-hobbit> pav5088: will correct that
 ln -s /etc/ldap/ldap.conf /etc/ldap/ldap-fai.conf
+
+# FIXME: I guess this is related to the above?  Perhaps this should be default
+#        not explicitly required?
+# We need make-fai-nfsroot to copy an LDAP configuration to our FAI client.
+echo "FAI_LDAP=/etc/ldap/ldap.conf" >> /etc/fai/make-fai-nfsroot.conf
+
+# FIXME: New.  I THINK this is required.  Remove once proven.
+sed -i 's@#FAI_CONFIG_SRC=nfs://yourservername/path/to/config/space@FAI_CONFIG_SRC=argonaut:///tmp/fai-ldap/1DF4Yu@' /etc/fai/fai.conf
 
 # Create fai NFSROOT.  Run with -v for verbose output.
 make-fai-nfsroot -v
@@ -525,7 +531,7 @@ echo "                    filename, and "`hostname --fqdn`" as 'next server'."
 # /home/<username>/.rhosts :
 #           10.0.2.15 root
 #
-# chgrp fai /srv/tftp/fai;chmod g+w /srv/tftp/fai
+# chgrp fai /srv/fai;chmod g+w /srv/fai
 #
 # /etc/pam.d/rsh
 #           #%PAM-1.0
