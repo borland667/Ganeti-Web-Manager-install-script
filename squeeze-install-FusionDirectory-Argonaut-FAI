@@ -51,7 +51,7 @@ else
 	exit 1
 fi
 
-apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai argonaut-client-fai
+apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai argonaut-fai-client argonaut-client-fai
 
 # FIXME: The next beta shouldn't require these bugfixes.
 sed -i 's@my (\$localuri) = \$uri =~ .*$@my (\$localuri) = \$uri;@' /usr/sbin/ldap2repository
@@ -287,7 +287,7 @@ sed -i 's@liblinux-lvm-perl@liblinux-lvm-perl\
 rsyslog dialog gawk bind9-host libpci2 ldap-utils\
 vim psmisc debootstrap@' /etc/fai/NFSROOT
 sed -i 's@# needed for the simple examples@# needed for the Fusion Directory integration@' /etc/fai/NFSROOT
-sed -i 's@cfengine2 libapt-pkg-perl@reprepro libdatetime-perl locales-all gettext argonaut-common argonaut-fai-client # argonaut-fai-progress\
+sed -i 's@cfengine2 libapt-pkg-perl@reprepro libdatetime-perl locales-all gettext argonaut-common argonaut-client-fai # argonaut-fai-progress\
 \
 # needed for non-free broadcom firmware\
 firmware-bnx2@' /etc/fai/NFSROOT
