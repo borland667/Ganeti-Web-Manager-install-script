@@ -44,7 +44,7 @@ echo "First we install required packages..."
 
 # FIXME: Need to check the below packages to see if all are still required.
 #        (Things have evolved quite quickly in this package).
-if apt-get install -y --allow-unauthenticated debian-keyring fusiondirectory-plugin-fai fusiondirectory-plugin-fai-schema nfs-kernel-server fai-server syslinux libnet-libidn-perl libio-socket-ssl-perl libnet-ssleay-perl recode libnet-ldap-perl libconvert-asn1-perl hwinfo libhd16 ntp console-tools console-common console-data libconsole atftpd liblog-agent-perl liblockfile-simple-perl rsync debmirror; then
+if apt-get install -y --allow-unauthenticated debian-keyring fusiondirectory-plugin-fai fusiondirectory-plugin-fai-schema nfs-kernel-server fai-server syslinux libnet-libidn-perl libio-socket-ssl-perl libnet-ssleay-perl recode libnet-ldap-perl libconvert-asn1-perl hwinfo libhd16 ntp console-tools console-common console-data libconsole atftpd liblog-agent-perl liblockfile-simple-perl rsync debmirror libfuse-perl; then
 	echo "Installation of FAI prerequisite packages successful..."
 else
 	echo "Installation failed for FAI prerequisite packages.  Exiting..."
