@@ -503,8 +503,8 @@ fusiondirectory-setup --update-cache --update-locales
 
 echo "!!!IMPORTANT INSTRUCTIONS!!!"
 echo ""
-echo "Be sure your DNS server is up to date with what is in LDAP by executing :"
-echo "ldap2bind"
+echo "Be sure your DNS server is up to date after adding new hosts by executing :"
+echo "ldap2bind.  This will create DNS records from the configuration in LDAP."
 echo ""
 echo "The following services should be added to a server in your Fusion Directory"
 echo "infrastructure before setting up FAI :"
