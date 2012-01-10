@@ -287,7 +287,9 @@ sed -i 's@liblinux-lvm-perl@liblinux-lvm-perl\
 rsyslog dialog gawk bind9-host libpci2 ldap-utils\
 vim psmisc debootstrap@' /etc/fai/NFSROOT
 sed -i 's@# needed for the simple examples@# needed for the Fusion Directory integration@' /etc/fai/NFSROOT
-sed -i 's@cfengine2 libapt-pkg-perl@reprepro libdatetime-perl locales-all gettext argonaut-common argonaut-client-fai # argonaut-fai-progress\
+# FIXME: Note: we install both argonaut-client-fai and argonaut-fai-client.  I don't think Benoit intended
+#              for this to be required, so this may change in future.
+sed -i 's@cfengine2 libapt-pkg-perl@reprepro libdatetime-perl locales-all gettext argonaut-common argonaut-client-fai argonaut-fai-client# argonaut-fai-progress\
 \
 # needed for non-free broadcom firmware\
 firmware-bnx2@' /etc/fai/NFSROOT
