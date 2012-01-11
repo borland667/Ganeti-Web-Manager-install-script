@@ -254,7 +254,7 @@ sed -i "s@\$1\$.*\'@"`echo $client_root_pw | mkpasswd -Hmd5 -s`"'@" /etc/fai/mak
 #        NOTE:: My local repo only has 'main', not 'contrib' or 'non-free'
 #               Change this?
 sed -i 's@deb http://.*/debian .*$@deb http://'`hostname --fqdn`'/debian squeeze main\
-'`grep ^deb.*$ /etc/apt/sources.list.d/argonaut.list`'\
+'"`grep ^deb.*$ /etc/apt/sources.list.d/argonaut.list`"'\
 deb http://repos.fusiondirectory.org/debian/ stable main@' /etc/fai/apt/sources.list
 # FIXME: Perhaps we should also cache the debian security website?
 sed -i 's@deb http://.*/debian-security .*$@deb http://security.debian.org/ squeeze/updates main@' /etc/fai/apt/sources.list
