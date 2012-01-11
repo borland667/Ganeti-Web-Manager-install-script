@@ -471,6 +471,38 @@ EOF
 #ldapadd -H <ldap uri> -x -D <binddn> -w <passwd> -f /tmp/new-ldap-user.ldif
 ldapadd -H ldaps://127.0.0.1:636 -x -D $LDAP_ADMIN_DN -w $LDAP_ADMIN_PW -f /tmp/fai-ldap-objects.ldif
 
+# FIXME: This should be configurable in a future version of argonaut-fuse.  Delete this section when it is.
+BOOT_CHOICE=0
+while [ $BOOT_CHOICE -lt 1 ] || [ $BOOT_CHOICE -gt 3 ]
+do
+  echo ""
+  echo "!!!IMPORTANT!!! : You must choose which method FAI uses to make a client boot"
+  echo "                  from a local disk.  Just pick one, and if it doesn't work"
+  echo "                  read through this script and make the change manually."
+  echo "                  (This is a temporary beta bug workaround)."
+  echo ""
+  echo "1) The standard method ie. localboot 0"
+  echo "2) The chainloader ie. chain.c32 hd0,0"
+  echo "3) Another alternate method ie. localboot -1"
+  echo ""
+  echo "...enter the number of your choice :"
+  read BOOT_CHOICE
+
+  if [ $BOOT_CHOICE -eq 1 ]; then
+     echo "Nothing needs doing...  moving on..."
+  fi
+
+  if [ $BOOT_CHOICE -eq 2 ]; then
+     echo "Configuring FAI.pm to contain chain.c32 hd0,0..."
+     sed -i 's@$kernel = '\''localboot 0'\''@$kernel = '\''chain.c32 hd0,0'\''@' /usr/share/perl5/Argonaut/Fuse/FAI.pm
+  fi
+
+  if [ $BOOT_CHOICE -eq 3 ]; then
+     echo "Configuring FAI.pm to contain localboot -1"
+     sed -i 's@$kernel = '\''localboot 0'\''@$kernel = '\''localboot -1'\''@' /usr/share/perl5/Argonaut/Fuse/FAI.pm
+  fi
+done
+
 # The database files are built when gosa-si is restarted, and it takes some
 # time.  Check /var/log/gosa-si-server.log to see when the db files have
 # been built.  (It should take around 5-10 minutes).
