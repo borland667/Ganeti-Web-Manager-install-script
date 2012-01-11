@@ -22,13 +22,13 @@ do
 
 if [ $REPO_CHOICE -eq 1 ]; then
   if [ -f /etc/apt/sources.list.d/gosa.list ]; then
-    echo "deb http://`hostname --fqdn`/argonaut-beta/ ./" >> /etc/apt/sources.list.d/fusiondirectory.list
+    echo "deb http://`hostname --fqdn`/argonaut-beta/ squeeze main" > /etc/apt/sources.list.d/argonaut.list
   fi
 fi
 
 if [ $REPO_CHOICE -eq 2 ]; then
   if [ -f /etc/apt/sources.list.d/gosa.list ]; then
-    echo "deb http://repos.fusiondirectory.org/argonaut-beta/ ./" >> /etc/apt/sources.list.d/fusiondirectory.list
+    echo "deb http://repos.fusiondirectory.org/argonaut-beta/ ./" > /etc/apt/sources.list.d/argonaut.list
   fi
 fi
 ########
