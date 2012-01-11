@@ -1,35 +1,21 @@
 #!/bin/bash
 # Shell script to install FAI managed by Fusion Directory
 # FIXME: Not quite working
-if [ "$USER" != "root" ]; then
-        echo "Must be root to execute script..."
-        exit 1
+if [ "$USER" != "root" ]; then        echo "Must be root to execute script..."        exit 1
 fi
 
 # FIXME: prerequisite scripts (we should test these have run :
 # squeeze-install-FusionDirectory
-if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
-  echo "Run the squeeze-install-FusionDirectory script.  Fusion Directory must be"
-  echo "installed and configured before we can continue..."
-  exit 1
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then  echo "Run the squeeze-install-FusionDirectory script.  Fusion Directory must be"  echo "installed and configured before we can continue..."  exit 1
 fi
 # squeeze-install-FusionDirectory-plugin-DHCP
-if [ ! -f /etc/dhcp/dhcpd.conf ]; then
-  echo "Run the squeeze-install-FusionDirectory-plugin-DHCP script.  DHCPd"
-  echo "must be installed and configured before we can continue..."
-  exit 1
+if [ ! -f /etc/dhcp/dhcpd.conf ]; then  echo "Run the squeeze-install-FusionDirectory-plugin-DHCP script.  DHCPd"  echo "must be installed and configured before we can continue..."  exit 1
 fi
 # squeeze-install-FusionDirectory-plugin-DNS
-if [ ! -f /etc/default/ldap2zone ]; then
-  echo "Run the squeeze-install-FusionDirectory-plugin-DNS script.  Bind9"
-  echo "must be installed and configured before we can continue..."
-  exit 1
+if [ ! -f /etc/default/ldap2zone ]; then  echo "Run the squeeze-install-FusionDirectory-plugin-DNS script.  Bind9"  echo "must be installed and configured before we can continue..."  exit 1
 fi
 # squeeze-install-FusionDirectory-Argonaut
-if [ ! -f /etc/argonaut/argonaut.conf ]; then
-  echo "Run the squeeze-install-FusionDirectory-Argonaut script."
-  echo "Argonaut must be installed and configured before we can continue."
-  exit 1
+if [ ! -f /etc/argonaut/argonaut.conf ]; then  echo "Run the squeeze-install-FusionDirectory-Argonaut script."  echo "Argonaut must be installed and configured before we can continue."  exit 1
 fi
 
 echo ""
@@ -59,9 +45,7 @@ sed -i 's@my (\$localuri) = \$uri =~ .*$@my (\$localuri) = \$uri;@' /usr/sbin/ld
 if [ -f /etc/ldap/schema/fusiondirectory/fai.ldif ]; then
 	echo "Adding schemas to LDAP tree..."
 else
-	echo "The file /etc/ldap/schema/fusiondirectory/fai.ldif does"
-        echo "not exist.  Something is very wrong.  Exiting..."
-        exit 1
+	echo "The file /etc/ldap/schema/fusiondirectory/fai.ldif does"        echo "not exist.  Something is very wrong.  Exiting..."        exit 1
 fi
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/fai.ldif
 # FIXME: Should any indexes be added here?
@@ -146,8 +130,7 @@ a2ensite debmirror
 
 # The debmirror command should verify our mirror
 gpg --list-keys
-gpg --keyring /usr/share/keyrings/debian-archive-keyring.gpg --export \
- | gpg --no-default-keyring --keyring trustedkeys.gpg --import
+gpg --keyring /usr/share/keyrings/debian-archive-keyring.gpg --export \ | gpg --no-default-keyring --keyring trustedkeys.gpg --import
 
 # The cron script to create the mirror lives in /etc/argonaut/fai/ .
 # FIXME: Are default permissions OK for this file?
@@ -354,12 +337,9 @@ echo "2 - 10.0.0.0/255.255.255.0"
 echo "3 - any network (ie. *)"
 echo "...or you can type a network/mask pair manually:"
 read NETWORK_CONFIG
-if [ "$NETWORK_CONFIG" = "1" ]; then
-    NETWORK_CONFIG="192.168.1.0/255.255.255.0"
-elif [ "$NETWORK_CONFIG" = "2" ]; then
-    NETWORK_CONFIG="10.0.0.0/255.255.255.0"
-elif [ "$NETWORK_CONFIG" = "3" ]; then
-    NETWORK_CONFIG="*"
+if [ "$NETWORK_CONFIG" = "1" ]; then    NETWORK_CONFIG="192.168.1.0/255.255.255.0"
+elif [ "$NETWORK_CONFIG" = "2" ]; then    NETWORK_CONFIG="10.0.0.0/255.255.255.0"
+elif [ "$NETWORK_CONFIG" = "3" ]; then    NETWORK_CONFIG="*"
 fi
 
 # FIXME: I made a note about an entry created in /var/lib/nfs/etab without a need
@@ -477,8 +457,7 @@ EOF
 
 # -x - use simple authentication instead of SASL FIXME: Does this make a difference?
 #ldapadd -H <ldap uri> -x -D <binddn> -w <passwd> -f /tmp/new-ldap-user.ldif
-ldapadd -H ldaps://127.0.0.1:636 -x -D $LDAP_ADMIN_DN -w $LDAP_ADMIN_PW \
-  -f /tmp/fai-ldap-objects.ldif
+ldapadd -H ldaps://127.0.0.1:636 -x -D $LDAP_ADMIN_DN -w $LDAP_ADMIN_PW \  -f /tmp/fai-ldap-objects.ldif
 
 # The database files are built when gosa-si is restarted, and it takes some
 # time.  Check /var/log/gosa-si-server.log to see when the db files have
@@ -542,4 +521,9 @@ echo "                    filename, and "`hostname --fqdn`" as 'next server'."
 #           auth     required       pam_nologin.so
 #           auth     required       pam_env.so
 #           auth     required       pam_unix.so
+#
+#### Grub files :
+# grub-pc grub-common
+##### Base files for FAI client :
+# base-files base-passwd bash bsdutils coreutils debconf debconf-i18n debianutils diffutils dpkg e2fslibs e2fsprogs findutils gcc-4.3-base gcc-4.4-base grep gzip hostname initscripts libacl1 libattr1 libblkid1 libc-bin libc6 libcomerr2 libdevmapper1.02.1 libgcc1 liblocale-gettext-perl libncurses5 libpam-modules libpam-runtime libpam0g libselinux1 libsepol1 libslang2 libss2 libstdc++6 libtext-charwidth-perl libtext-iconv-perl libtext-wrapi18n-perl libunwind7 libuuid1 login lsb-base lzma mawk mount ncurses-base ncurses-bin passwd perl-base procps sed sensible-utils sysv-rc sysvinit sysvinit-utils tar tzdata util-linux zlib1g
 
