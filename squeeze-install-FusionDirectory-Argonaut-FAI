@@ -317,8 +317,11 @@ ln -s /etc/ldap/ldap.conf /etc/ldap/ldap-fai.conf
 # We need make-fai-nfsroot to copy an LDAP configuration to our FAI client.
 echo "FAI_LDAP=/etc/ldap/ldap.conf" >> /etc/fai/make-fai-nfsroot.conf
 
-# FIXME: New.  I THINK this is required.  Remove once proven.
+# Change source of config to argonaut/LDAP
 sed -i 's@#FAI_CONFIG_SRC=nfs://yourservername/path/to/config/space@FAI_CONFIG_SRC=argonaut:///tmp/fai-ldap/1DF4Yu@' /etc/fai/fai.conf
+
+# FIXME: This SHOULD get fixed soon...  remove this once it happens.
+sed -i 'N;/client_port = 8081\ninterface   = eth1/s/interface   = eth1/interface  = eth0/;P;D' /etc/argonaut/argonaut.conf
 
 # Create fai NFSROOT.  Run with -v for verbose output.
 make-fai-nfsroot -v
