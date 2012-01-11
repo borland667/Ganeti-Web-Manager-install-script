@@ -72,13 +72,13 @@ do
   read REPO_CHOICE
 
 #  if [ $REPO_CHOICE -eq 3 ]; then
-#    if [ -f /etc/apt/sources.list.d/gosa.list ]; then
+#    if [ ! -f /etc/apt/sources.list.d/gosa.list ]; then
 #      echo "deb http://apt.gosa-addons.org/ squeeze main" >> /etc/apt/sources.list.d/gosa.list
 #    fi
 #  fi
 
 #  if [ $REPO_CHOICE -eq 2 ]; then
-#    if [ -f /etc/apt/sources.list.d/gosa.list ]; then
+#    if [ ! -f /etc/apt/sources.list.d/gosa.list ]; then
 #      echo "deb http://apt.gosa-addons.org/ lenny main" >> /etc/apt/sources.list
 #    fi
 #  fi
