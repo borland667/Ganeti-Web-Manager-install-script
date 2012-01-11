@@ -205,8 +205,8 @@ LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf 
 echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
 
 # ...then configure our TFTPD server to bind to LDAP as admin.
-sed -i 's@#auth_dn=@auth_dn='$LDAP_ADMIN_DN'@' /etc/argonaut/argonaut-fuse.conf
-sed -i 's@#auth_pwd=@auth_pwd='$LDAP_ADMIN_PW'@' /etc/argonaut/argonaut-fuse.conf
+sed -i 's@^dn=@dn='$LDAP_ADMIN_DN'@' /etc/argonaut/argonaut-fuse.conf
+sed -i '0,/password/s@^password=@password='$LDAP_ADMIN_PW'@' /etc/argonaut/argonaut-fuse.conf
 
 # We now edit /etc/fai/make-fai-nfsroot.conf and change some variables :
 #-----------------------------------------------------------
