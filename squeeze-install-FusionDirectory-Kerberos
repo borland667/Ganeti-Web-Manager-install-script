@@ -428,3 +428,9 @@ EOF
 # can have automatic creation of home directories.  On squeeze this should
 # be managed by pam-auth-update rather than manually editing the PAM config.
 
+#### Random useful(?) note from IRC
+# <Coffe> how should the filter to find what groups a user are in  ?
+# <Coffe> i am now checking if i can change sssd filter
+# <Coffe> solved it :)
+# <Coffe> pav5088,  i will .. its where a simple fix.. just define when searching for groups it should serach for posixGroups
+
