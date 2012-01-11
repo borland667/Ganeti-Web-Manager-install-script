@@ -254,7 +254,7 @@ sed -i "s@\$1\$.*\'@"`echo $client_root_pw | mkpasswd -Hmd5 -s`"'@" /etc/fai/mak
 #        NOTE:: My local repo only has 'main', not 'contrib' or 'non-free'
 #               Change this?
 sed -i 's@deb http://.*/debian .*$@deb http://'`hostname --fqdn`'/debian squeeze main\
-deb http://repos.fusiondirectory.org/argonaut-beta/ ./\
+'`grep ^deb.*$ /etc/apt/sources.list.d/argonaut.list`'\
 deb http://repos.fusiondirectory.org/debian/ stable main@' /etc/fai/apt/sources.list
 # FIXME: Perhaps we should also cache the debian security website?
 sed -i 's@deb http://.*/debian-security .*$@deb http://security.debian.org/ squeeze/updates main@' /etc/fai/apt/sources.list
@@ -457,7 +457,7 @@ EOF
 
 # -x - use simple authentication instead of SASL FIXME: Does this make a difference?
 #ldapadd -H <ldap uri> -x -D <binddn> -w <passwd> -f /tmp/new-ldap-user.ldif
-ldapadd -H ldaps://127.0.0.1:636 -x -D $LDAP_ADMIN_DN -w $LDAP_ADMIN_PW \  -f /tmp/fai-ldap-objects.ldif
+ldapadd -H ldaps://127.0.0.1:636 -x -D $LDAP_ADMIN_DN -w $LDAP_ADMIN_PW -f /tmp/fai-ldap-objects.ldif
 
 # The database files are built when gosa-si is restarted, and it takes some
 # time.  Check /var/log/gosa-si-server.log to see when the db files have
