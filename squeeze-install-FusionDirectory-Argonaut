@@ -6,8 +6,32 @@ if [ "$USER" != "root" ]; then
         exit 1
 fi
 
+########
 # FIXME: Right now argonaut is beta so we add a temporary beta repo. remove later
-echo "deb http://repos.fusiondirectory.org/argonaut-beta/ ./" >> /etc/apt/sources.list.d/fusiondirectory.list
+REPO_CHOICE=0
+while [ $REPO_CHOICE -lt 1 ] || [ $REPO_CHOICE -gt 2 ]
+do
+  echo ""
+  echo "Which Argonaut repository will you be using? :"
+  echo "1) A local Argonaut repo (manually run argonaut-nightly.sh first!!!)"
+  echo "2) Benoits beta repo (can be out of date sometimes)"
+#  echo "3) ...a third choice..."
+  echo ""
+  echo "...enter the number of your choice :"
+  read REPO_CHOICE
+
+if [ $REPO_CHOICE -eq 1 ]; then
+  if [ -f /etc/apt/sources.list.d/gosa.list ]; then
+    echo "deb http://`hostname --fqdn`/argonaut-beta/ ./" >> /etc/apt/sources.list.d/fusiondirectory.list
+  fi
+fi
+
+if [ $REPO_CHOICE -eq 2 ]; then
+  if [ -f /etc/apt/sources.list.d/gosa.list ]; then
+    echo "deb http://repos.fusiondirectory.org/argonaut-beta/ ./" >> /etc/apt/sources.list.d/fusiondirectory.list
+  fi
+fi
+########
 
 echo "Downloading package lists...  This may take a while..."
 if apt-get -qq update; then
