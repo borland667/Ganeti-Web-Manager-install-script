@@ -204,7 +204,7 @@ echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
 LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
 echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
 
-# ...then configure our TFTPD server to bind to LDAP as admin.
+# ...then configure our Argonaut-fuse server to bind to LDAP as admin.
 sed -i 's@^dn=@dn='$LDAP_ADMIN_DN'@' /etc/argonaut/argonaut-fuse.conf
 sed -i '0,/password/s@^password=@password='$LDAP_ADMIN_PW'@' /etc/argonaut/argonaut-fuse.conf
 
@@ -510,7 +510,7 @@ done
 /etc/init.d/argonaut-server restart
 /etc/init.d/argonaut-client-management restart
 
-# We need to refresh fts, the "fuse-tftp-supplicant" ie. the daemon
+# We need to refresh "argonaut-fuse" ie. the daemon
 # that populates the pxelinux.cfg directory for tftp.
 /etc/init.d/argonaut-fuse stop
 umount /srv/fai/pxelinux.cfg
