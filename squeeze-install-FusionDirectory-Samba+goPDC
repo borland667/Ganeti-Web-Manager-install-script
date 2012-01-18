@@ -309,7 +309,7 @@ sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' 
 # default), if you want to start from different numbers you can use "-g
 # <firstgid>" or "-u <firstuid>" as options to smbldap-populate.
 
-/usr/sbin/smbldap-populate -u 1100 -g 1100 -a admin
+/usr/sbin/smbldap-populate -u 1100 -g 1100 -a fd-admin
 
 ## Remove any cached samba data
 #rm /var/lib/samba/*.tdb
