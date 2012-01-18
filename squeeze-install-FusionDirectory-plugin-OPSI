@@ -12,13 +12,13 @@ fi
 
 # FIXME: prerequisite scripts (we should test these have run :
 # squeeze-install-FusionDirectory
-if [ ! -f /etc/gosa/gosa.conf ]; then
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
   echo "Run the squeeze-install-GOsa-2.6 script before this one.  GOsa must be"
   echo "installed and configured before we can continue..."
   exit 1
 fi
 # squeeze-install-FusionDirectory-Argonaut
-if [ ! -f /etc/gosa-si/server.conf ]; then
+if [ ! -f /etc/argonaut/argonaut.conf ]; then
   echo "Run the squeeze-install-FusionDirectory-Argonaut script before this"
   echo "one.  GOsa-SI must be installed and configured before we can continue."
   exit 1
