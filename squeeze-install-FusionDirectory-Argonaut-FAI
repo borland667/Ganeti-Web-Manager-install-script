@@ -321,6 +321,7 @@ echo "FAI_LDAP=/etc/ldap/ldap.conf" >> /etc/fai/make-fai-nfsroot.conf
 sed -i 's@#FAI_CONFIG_SRC=nfs://yourservername/path/to/config/space@FAI_CONFIG_SRC=argonaut:///tmp/fai-ldap/1DF4Yu@' /etc/fai/fai.conf
 
 # FIXME: This SHOULD get fixed soon...  remove this once it happens.
+#        ie. client being configured to use eth1 instead of eth0
 sed -i 'N;/client_port = 8081\ninterface   = eth1/s/interface   = eth1/interface  = eth0/;P;D' /etc/argonaut/argonaut.conf
 
 # Create fai NFSROOT.  Run with -v for verbose output.
@@ -570,7 +571,7 @@ echo "                    filename, and "`hostname --fqdn`" as 'next server'."
 #### chain.c32 is found in /usr/lib/syslinux/
 # DEFAULT chain.c32 hd0 0
 #### Video mode (kernel option for more text on FAI client screen):
-# vga=10Ch
+# vga=0x10C
 #### Grub files :
 # grub-pc grub-common
 ##### Base files for FAI client :
