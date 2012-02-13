@@ -1,0 +1,121 @@
+#!/bin/bash
+# Shell script to install Adempiere 3.7.0 on Debian Squeeze 6.0
+# Inspired mainly from : 
+# http://www.adempiere.com/Installing_ADempiere_3.7.0_on_Ubuntu_11.04
+if [ "$USER" != "root" ]; then        echo "Must be root to execute script..."        exit 1
+fi
+
+apt-get update
+apt-get -y install wget openjdk-6-jdk postgresql tar gzip
+
+mkdir /opt
+cd /opt
+
+if [ ! -f /opt/Adempiere_370LTS.tar.gz ]; then
+  # FIXME: Is there a way of automatically finding the best sourceforge
+  #        mirror, or else is there a better general mirror than Internode?
+  #wget http://internode.dl.sourceforge.net/project/adempiere/ADempiere%20Official%20Release/Adempiere%203.7.0-LTS/Adempiere_370LTS.tar.gz
+  wget -d http://sourceforge.net/projects/adempiere/files/ADempiere%20Official%20Release/Adempiere%203.7.0-LTS/Adempiere_370LTS.tar.gz/download
+fi
+
+tar -zxvf Adempiere_370LTS.tar.gz
+
+cd /opt/Adempiere
+sudo chmod +x *.sh
+sudo chmod +x utils/*.sh
+sudo chmod +x utils/postgresql/*.sh
+
+# Set system variables JAVA_HOME and ADEMPIERE_HOME in
+# the file /etc/environment...
+if [ `grep -c "export JAVA_HOME=" /etc/environment` -gt 0 ]; then
+    sed -i 's@^export JAVA_HOME=.*$@export JAVA_HOME=/usr/lib/jvm/java-6-openjdk@' /etc/environment
+else
+  echo "export JAVA_HOME=/usr/lib/jvm/java-6-openjdk" >> /etc/environment
+fi
+
+if [ `grep -c "export ADEMPIERE_HOME=" /etc/environment` -gt 0 ]; then
+    sed -i 's@^export ADEMPIERE_HOME=.*$@export ADEMPIERE_HOME=/opt/Adempiere@' /etc/environment
+else
+  echo "export ADEMPIERE_HOME=/opt/Adempiere" >> /etc/environment
+fi
+
+# ...and export to our current environment.
+export JAVA_HOME=/usr/lib/jvm/java-6-openjdk
+export ADEMPIERE_HOME=/opt/Adempiere
+
+echo ""
+echo "You need to specify which network/s the Adempiere database stored in"
+echo "Postgres can be accessed from :"
+echo "1 - 192.168.1.0/24"
+echo "2 - 10.0.0.0/24"
+echo "3 - any network (ie. *)"
+echo "...or you can type a network/mask pair manually:"
+read NETWORK_CONFIG
+if [ "$NETWORK_CONFIG" = "1" ]; then    NETWORK_CONFIG="192.168.1.0/24"
+elif [ "$NETWORK_CONFIG" = "2" ]; then    NETWORK_CONFIG="10.0.0.0/24"
+elif [ "$NETWORK_CONFIG" = "3" ]; then    NETWORK_CONFIG="*"
+fi
+
+sed -i 's@^host.*all.*all.*127.0.0.1/32.*$@&\
+host    all         all         '$NETWORK_CONFIG'	md5@' /etc/postgresql/8.4/main/pg_hba.conf
+
+sed -i "s@#listen_addresses = 'localhost'@listen_addresses = '*'@" /etc/postgresql/8.4/main/postgresql.conf
+
+sed -i 's@#password_encryption = on@password_encryption = on@' /etc/postgresql/8.4/main/postgresql.conf
+
+/etc/init.d/postgresql restart
+
+PG_PASSWORD=""
+AD_PASSWORD=""
+
+echo ""
+echo "Enter a new password for the Debian PostgreSQL superuser:"
+read PG_PASSWORD
+
+sudo -u postgres sh -c "psql -d template1 -c 'ALTER USER postgres WITH PASSWORD '\'$PG_PASSWORD\'';'"
+
+echo ""
+echo "Enter a password for the Postgres user 'adempiere' which will own your db:"
+read AD_PASSWORD
+# sudo -u postgres sh -c "psql -d template1 -c 'ALTER USER postgres WITH PASSWORD '\'$PG_PASSWORD\'';'"
+
+# The dump file we're loading into Postgres needs to be modified to suit
+# an older PostgreSQL v8.4
+sed -i 's@CREATE OR REPLACE PROCEDURAL LANGUAGE plpgsql;@CREATE PROCEDURAL LANGUAGE plpgsql;@' /opt/Adempiere/data/Adempiere_pg.dmp
+
+cd /opt/Adempiere
+# Copy the properties template using tr to magically change the
+# format from DOS to Unix.
+tr -d '\15\32' < AdempiereEnvTemplate.properties > AdempiereEnv.properties
+
+# Configure the minimum required variables so we can run Adempiere setup
+sed -i 's@^ADEMPIERE_HOME=.*$@ADEMPIERE_HOME=/opt/Adempiere@' /opt/Adempiere/AdempiereEnv.properties
+sed -i 's@^JAVA_HOME=.*$@JAVA_HOME=/usr/lib/jvm/java-6-openjdk@' /opt/Adempiere/AdempiereEnv.properties
+sed -i 's@^ADEMPIERE_DB_SERVER=.*$@ADEMPIERE_DB_SERVER='`hostname --fqdn`'@' /opt/Adempiere/AdempiereEnv.properties
+sed -i 's@^ADEMPIERE_DB_SYSTEM=.*$@ADEMPIERE_DB_SYSTEM='$PG_PASSWORD'@' /opt/Adempiere/AdempiereEnv.properties
+sed -i 's@^ADEMPIERE_DB_PASSWORD=.*$@ADEMPIERE_DB_PASSWORD='$AD_PASSWORD'@' /opt/Adempiere/AdempiereEnv.properties
+sed -i 's@^ADEMPIERE_APPS_SERVER=.*$@ADEMPIERE_APPS_SERVER='`hostname --fqdn`'@' /opt/Adempiere/AdempiereEnv.properties
+sed -i 's@^ADEMPIERE_WEB_PORT=.*$@ADEMPIERE_WEB_PORT=4080@' /opt/Adempiere/AdempiereEnv.properties
+sed -i 's@^ADEMPIERE_SSL_PORT=.*$@ADEMPIERE_SSL_PORT=4443@' /opt/Adempiere/AdempiereEnv.properties
+
+# FIXME: I don't think this is required.  Check, and remove this if it's so.
+#sed -i 's@^ADEMPIERE_DB_PASSWORD=.*$@&\
+#ADEMPIERE_DB_URL=jdbc\\\:postgresql\\\://'`hostname --fqdn`'\\\:5432/adempiere@' /opt/Adempiere/AdempiereEnv.properties
+
+# ...I've left these here in case there's more variables I decide to set...
+# eg. email or cert variables.
+#sed -i 's@@@' /opt/Adempiere/AdempiereEnv.properties
+#sed -i 's@@@' /opt/Adempiere/AdempiereEnv.properties
+
+sh ./RUN_silentsetup.sh
+
+cd /opt/Adempiere/utils/
+
+sh ./RUN_ImportAdempiere.sh
+
+echo ""
+echo "To run the Adempiere server : /opt/Adempiere/utils/RUN_Server2.sh"
+echo "...then..."
+echo "to access the web client : https://"`hostname --fqdn`":4443"
+
+# FIXME: Perhaps we can set up a /etc/init.d script in future?
