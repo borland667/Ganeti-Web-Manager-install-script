@@ -65,7 +65,7 @@ do
   echo ""
   echo "Which repository will you be using? :"
   echo "1) The Fusion Directory Squeeze repository"
-#  echo "2) ...another choice..."
+  echo "2) The Fusion Directory beta repository"
 #  echo "3) ...a third choice..."
   echo ""
   echo "...enter the number of your choice :"
@@ -77,11 +77,11 @@ do
 #    fi
 #  fi
 
-#  if [ $REPO_CHOICE -eq 2 ]; then
-#    if [ ! -f /etc/apt/sources.list.d/gosa.list ]; then
-#      echo "deb http://apt.gosa-addons.org/ lenny main" >> /etc/apt/sources.list
-#    fi
-#  fi
+  if [ $REPO_CHOICE -eq 2 ]; then
+    if [ ! -f /etc/apt/sources.list.d/gosa.list ]; then
+      echo "deb http://repos.fusiondirectory.org/fusiondirectory-beta/ ./" >> /etc/apt/sources.list
+    fi
+  fi
   if [ $REPO_CHOICE -eq 1 ]; then
     if [ ! -f /etc/apt/sources.list.d/fusiondirectory.list ]; then
       echo "deb http://repos.fusiondirectory.org/debian/ stable main" >> /etc/apt/sources.list.d/fusiondirectory.list
