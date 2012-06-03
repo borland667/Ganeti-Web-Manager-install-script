@@ -124,7 +124,7 @@ read my_dummy_value
 
 # We want the user to be able to see the above instructions while configuring
 # slapd, so we temporarily enable the "readline" debconf interface.
-DEBIAN_PRIORITY="low" apt-get install slapd
+DEBIAN_PRIORITY="low" apt-get -y --allow-unauthenticated install slapd
 unset DEBIAN_PRIORITY
 # FIXME: Is unsetting of DEBCONF_PRIORITY required?
 
@@ -323,16 +323,14 @@ echo "servers organisation name."
 echo ""
 
 cat > /etc/ssl/templates/snakeoil.info <<-EOF
-	organization = "Default Org Name"
-	cn = "temp-hostname.com"
+	organization = "$org_name"
+	cn = "$my_fqdn"
 	expiration_days = 1095
 	tls_www_server
 	encryption_key
 	signing_key
 EOF
 chmod 640 /etc/ssl/templates/snakeoil.info
-sed -i 's@temp-hostname.com@'$my_fqdn'@' /etc/ssl/templates/snakeoil.info
-sed -i 's@Default Org Name@'$org_name'@' /etc/ssl/templates/snakeoil.info
 
 certtool --generate-certificate --load-privkey ssl-cert-snakeoil.key \
   --load-ca-certificate /etc/ssl/certs/ssl-cert-local-ca.pem \
@@ -417,7 +415,7 @@ echo "
 	#loglevel 1024
 
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/samba.ldif
-ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/trust.ldif
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/ldapns.ldif
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gosystem.ldif
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gofon.ldif
 ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/goto.ldif

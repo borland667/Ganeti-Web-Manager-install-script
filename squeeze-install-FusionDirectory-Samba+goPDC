@@ -208,7 +208,7 @@ echo "Base DN extracted from LDAP (cn=config): "$LDAP_BASE_DN
 # in a lot of other config information (for LDAP, smbldap-tools etc...).  Notice we
 # use the LDAP connection details extracted above (ie. $LDAP_BASE_DN and 
 # $LDAP_ADMIN_DN)  
-if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://localhost\
+if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://`hostname --fqdn`\
    domain logons = yes\
    preferred master = yes\
    ldap ssl = no\
@@ -283,8 +283,8 @@ sed -i 's@slavePort="389@slavePort="636@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@usersdn="ou=Users@usersdn="ou=people@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@computersdn="ou=Computers@computersdn="ou=computers@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@groupsdn="ou=Groups@groupsdn="ou=groups@' /etc/smbldap-tools/smbldap.conf
-sed -i 's@slaveLDAP="ldap.iallanis.info@slaveLDAP="localhost@' /etc/smbldap-tools/smbldap.conf
-sed -i 's@masterLDAP="ldap.iallanis.info@masterLDAP="localhost@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@slaveLDAP="ldap.iallanis.info@slaveLDAP="`hostname --fqdn`@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@masterLDAP="ldap.iallanis.info@masterLDAP="`hostname --fqdn`@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@ldapSSL="0"@ldapSSL="1"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@ldapTLS="1"@ldapTLS="0"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@verify="require"@verify="none"@' /etc/smbldap-tools/smbldap.conf
