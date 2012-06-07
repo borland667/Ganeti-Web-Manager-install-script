@@ -1,0 +1,282 @@
+#!/bin/bash
+# Script to install and configure Samba /w LDAP support for use with Fusion
+# Directory.
+# FIXME: We need an overview on what's going on in this script here.
+#
+# This script needs to run as root
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# Check for valid IP.  Warn if only configured to 127.0.x.x
+my_fqdn=`hostname -f`
+my_host_ip=`grep $my_fqdn /etc/hosts | awk '{ print $1 }'`
+
+echo ""
+echo "Your fully qualified hostname is "$my_fqdn
+echo "and your IP is "$my_host_ip
+if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
+	echo ""
+	echo "You should really make your hostname resolve to a valid network IP."
+	echo "This is required for plugins such as OPSI and is generally a good idea."
+	echo "To do this edit your /etc/hosts file and make sure your hostname"
+	echo "(printed above) resolves to an IP other than 127.x.x.x"
+	echo "Your /etc/network/interfaces will also need to match. eg. :"
+	echo "iface eth0 inet static"
+	echo "    address 192.168.1.120"
+	echo "    netmask 255.255.255.0"
+	echo "    gateway 192.168.1.1"
+	echo "To make this take effect : killall dhclient3;ifdown eth0;ifup eth0"
+	echo "'Ctrl-C' to exit or hit <enter> to continue..."
+	read my_dummy_value 
+fi
+
+
+#FIXME:Is it really a problem for local root to be a database admin below???
+echo ""
+echo "1) When enabling LDAP service lookup select 'passwd', 'shadow' and 'group'."
+echo "2) The LDAP URI should be ldaps:// (and NOT ldapi:// which is the default"
+echo "3) When configuring libpam-ldap, answer 'No' to 'Allow LDAP admin account"
+echo "to behave like a local root'"
+echo "...for everything else default values should be OK."
+echo "<Hit enter to continue>"
+read my_dummy_value
+
+if apt-get -y install gnutls-bin ldap-utils samba smbldap-tools libnss-ldapd libpam-ldap; then
+	echo "Installation of samba, libnss-ldapd and"
+	echo "libpam-ldap successful..."
+else
+	echo "Installation of samba, libnss-ldapd and"
+	echo "libpam-ldap failed.  Exiting..."
+	exit 1
+fi
+
+if [ -d /etc/fusiondirectory ]; then
+  echo "Echo you have an existing /etc/fusiondirectory on this machine."
+  echo "Is this your FusionDirectory server?  This script has canceled just"
+  echo "in case you're executing this on the wrong machine."
+  exit 1
+fi
+
+mkdir /etc/fusiondirectory
+
+echo "Please enter the name of your FusionDirectory server :"
+read FD_SERVER
+echo "Temporarily copying your fusiondirectory.conf to this machine..."
+echo "You'll need to enter the root password of your FusionDirectory server."
+scp root@$FD_SERVER://etc/fusiondirectory/fusiondirectory.conf /etc/fusiondirectory
+if [ $? != 0 ] ; then
+        rmdir /etc/fusiondirectory
+	echo "Failed to copy your fusiondirectory.conf from this machine... exiting"
+        exit 1
+fi
+
+# NOTE: The URI below could be "ldaps://" alone, and this would be valid, BUT
+#       there is a bug in a Fusion Directory utility program called
+#       ldap2repository which doesn't accept this syntax.
+# FIXME: Remove this note when the problem is fixed.
+cat >> /etc/ldap/ldap.conf <<-EOF
+	URI     ldaps://$FD_SERVER/
+	
+	TLS_REQCERT never
+	# TLS_CACERT /etc/ssl/certs/ssl-cert-local-ca.pem
+	# TLS_CERT /etc/ssl/certs/ssl-cert-snakeoil.pem
+	# TLS_KEY /etc/ssl/private/ssl-cert-snakeoil.key
+EOF
+
+DNS_DOMAIN=`hostname --domain`
+NT_DOMAIN=`grep 'workgroup =' /etc/samba/smb.conf | awk -F'=' '{ print $2 }'|sed 's/ //g'`
+echo "Domain Name extracted from /etc/samba/smb.conf"
+LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
+echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+
+LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
+
+echo ""
+echo "You'll need to enter the root password of your FD server:"
+LDAP_BASE_DN=`ssh root@$FD_SERVER /usr/bin/ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '{ print $2 }'`
+echo "Base DN extracted from LDAP (cn=config): "$LDAP_BASE_DN
+
+DOMAIN_SID=`net getdomainsid | grep domain - | awk -F':' '{print $2}' | sed 's/ //g'`
+echo "Extracted Domain SID from LDAP..."
+
+#,------------------------------------------------------------------------------
+#| LDAP clients will also need valid certs and keys, and LDAP connection details.
+#| Many LDAP-aware pieces of software look in /etc/ldap/ldap.conf for 
+#| configuration.  NOTE:: we reuse our previously extracted base dn- and use it to
+#| configure ldap.conf to save any users of this script having to think or type.
+#'------------------------------------------------------------------------------
+
+echo "" >> /etc/ldap/ldap.conf
+echo "# ADDED BY FUSION DIRECTORY INSTALL SCRIPT" >> /etc/ldap/ldap.conf
+echo "BASE    "$LDAP_BASE_DN >> /etc/ldap/ldap.conf
+
+if grep pam-auth-update /etc/pam.d/common-account; then
+  echo "This system is a pam-auth-update managed system.  No need for us to"
+  echo "modify the pam configuration manually..."
+else
+cp /etc/pam.d/common-account /etc/pam.d/common-account.backup
+# Write the following lines to /etc/pam.d/common-account
+cat > /etc/pam.d/common-account -<<EOF
+	account sufficient	pam_unix.so
+	account required	pam_ldap.so
+	
+	#Enable if using Kerberos:
+	#account required	pam_krb5.so
+EOF
+
+cp /etc/pam.d/common-auth /etc/pam.d/common-auth.backup
+# Write the following lines to /etc/pam.d/common-auth
+cat > /etc/pam.d/common-auth -<<EOF
+	# Disable the three lines if using Kerberos:
+	auth [success=1 default=ignore] pam_unix.so nullok_secure
+	auth required pam_ldap.so use_first_pass
+	auth required pam_permit.so
+	
+	# Enable the three lines if using Kerberos:
+	#auth    sufficient        pam_unix.so nullok_secure
+	#auth    sufficient        pam_krb5.so use_first_pass
+	#auth    required          pam_deny.so
+EOF
+
+cp /etc/pam.d/common-session /etc/pam.d/common-session.backup
+# Write the following lines to /etc/pam.d/common-session
+cat > /etc/pam.d/common-session -<<EOF
+	session required        pam_unix.so
+	session required        pam_mkhomedir.so skel=/etc/skel/ umask=0022
+	
+	# Enable if using Kerberos:
+	#session  optional  pam_krb5.so minimum_uid=1000
+EOF
+
+cp /etc/pam.d/common-password /etc/pam.d/common-password.backup
+# Write the following lines to /etc/pam.d/common-password
+cat > /etc/pam.d/common-password -<<EOF
+	password   sufficient pam_ldap.so ignore_unknown_user
+	password   required   pam_unix.so nullok obscure md5
+EOF
+fi
+
+## Enabling Samba LDAP support :
+## I find using SWAT to edit the Samba configuration much easier than doing
+## so by hand, although I don't install SWAT automatically.  Perhaps we could
+## ask the user in future?????
+## To install SWAT
+# apt-get install swat
+## The SWAT install makes changes to /etc/inetd.conf . Restart inetd for
+## changes to take effect
+# /etc/init.d/openbsd-inetd restart
+## SWAT can now be accessed at http://localhost:901 .  You'll want to edit
+## the global section and enable "advanced" settings to see the following
+## options.
+
+# Make required changes in /etc/samba/smb.conf to support LDAP, to become
+# a domain master, use the smbldap-tools scripts to create/delete machine
+# accounts etc...
+
+sed -i 's@#[ /t]*domain master = auto@domain master = no@' /etc/samba/smb.conf
+
+# ...we then search for and replace the passdb backend config option, and also paste
+# in a lot of other config information (for LDAP, smbldap-tools etc...).  Notice we
+# use the LDAP connection details extracted above (ie. $LDAP_BASE_DN and 
+# $LDAP_ADMIN_DN)  
+if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://'$FD_SERVER'\
+   domain logons = yes\
+   preferred master = no\
+   ldap ssl = no\
+   ldap suffix = '$LDAP_BASE_DN'\
+   ldap admin dn = '$LDAP_ADMIN_DN'\
+   ldap user suffix = ou=people\
+   ldap group suffix = ou=groups\
+   ldap machine suffix = ou=systems\
+   ; Dont use sambas internal ldap password sync\
+   ldap passwd sync = No\
+   ; Use an external program to sync the LDAP password\
+   unix password sync = Yes\
+   passwd program = /usr/sbin/smbldap-passwd -u %u\
+   passwd chat = *New*password* %n\\n *Retype*new*password* %n\\n *all*authentication*tokens*updated*\
+   add user script = /usr/sbin/smbldap-useradd -m "%u"\
+   add machine script = /usr/sbin/smbldap-useradd -w "%u"\
+   add group script = /usr/sbin/smbldap-groupadd -p "%g"\
+   add user to group script = /usr/sbin/smbldap-groupmod -m "%u" "%g"\
+   delete user script = /usr/sbin/smbldap-userdel "%u"\
+   delete group script = /usr/sbin/smbldap-groupdel "%g"\
+   delete user from group script = /usr/sbin/smbldap-groupmod -x "%u" "%g"\
+   #trouble with server not becoming a domain master?  This helps\
+   os level = 65\
+@' /etc/samba/smb.conf; then
+	echo "Modified smb.conf successfully..."
+else
+	echo "Failed modifying smb.conf.  Exiting..."
+	exit 1
+fi
+# It's very strange that "ldap ssl = no" is required to get ssl/tls over ldaps
+# working.  It seems quite counter intuitive to me, and wasted lots of time.
+# NOTE: This isn't yet tested in Lenny.  Does it work?
+
+#### FIXME:Should we set this stuff up in the script?  I haven't enabled this yet
+#### I'm leaving it here to inform admins how to enable these things.  Perhaps
+#### we could ask the user if these should be enabled or not?????
+##
+## To set up a user home directory
+# logon drive = h:
+# logon home = \\%N\%u
+#
+## And the netlogon share for logon scripts (is this correct?)
+# [netlogon]
+# ; comment = Network Logon Service
+# path = <path to logon>
+# guest ok = yes
+# read only = yes
+# share modes = no
+
+# FIXME: New smbldap-tools stuff.  Check if correct, then delete this note.
+zcat /usr/share/doc/smbldap-tools/examples/smbldap.conf.gz > /etc/smbldap-tools/smbldap.conf
+cp /usr/share/doc/smbldap-tools/examples/smbldap_bind.conf /etc/smbldap-tools/smbldap_bind.conf
+
+chmod 0644 /etc/smbldap-tools/smbldap.conf
+chmod 0600 /etc/smbldap-tools/smbldap_bind.conf
+
+
+
+sed -i 's@sambaDomain="DOMSMB@sambaDomain="'$NT_DOMAIN'@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@suffix="dc=iallanis,dc=info@suffix="'$LDAP_BASE_DN'@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@masterDN="cn=Manager,dc=iallanis,dc=info@masterDN="'$LDAP_ADMIN_DN'@' /etc/smbldap-tools/smbldap_bind.conf
+sed -i 's@slaveDN="cn=Manager,dc=iallanis,dc=info@slaveDN="'$LDAP_ADMIN_DN'@' /etc/smbldap-tools/smbldap_bind.conf
+sed -i 's@masterPw="secret@masterPw="'$LDAP_ADMIN_PW'@' /etc/smbldap-tools/smbldap_bind.conf
+sed -i 's@slavePw="secret@slavePw="'$LDAP_ADMIN_PW'@' /etc/smbldap-tools/smbldap_bind.conf
+sed -i 's@mailDomain="iallanis.info@mailDomain="'$DNS_DOMAIN'@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@masterPort="389@masterPort="636@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@slavePort="389@slavePort="636@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@usersdn="ou=Users@usersdn="ou=people@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@computersdn="ou=Computers@computersdn="ou=computers@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@groupsdn="ou=Groups@groupsdn="ou=groups@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@slaveLDAP="ldap.iallanis.info@slaveLDAP="`hostname --fqdn`@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@masterLDAP="ldap.iallanis.info@masterLDAP="`hostname --fqdn`@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@ldapSSL="0"@ldapSSL="1"@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@ldapTLS="1"@ldapTLS="0"@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@verify="require"@verify="none"@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@strictNamingRules="true@strictNamingRules="false@' /etc/fusiondirectory/fusiondirectory.conf
+## FIXME: Trying to not explicitly specify SID in smbldap.conf.  Works?
+sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' /etc/smbldap-tools/smbldap.conf
+#sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@@' /etc/smbldap-tools/smbldap.conf
+
+# The nscd daemon which caches name service data (ie. passwd/shadow/group)
+# can cause problems when this data changes quickly eg. adding users, machines etc...
+# One of the goPDC authors suggested using a "post_create" script to clear this
+# data after Samba makes such changes (eg. from the "add machine script"),
+# and I THINK the following is what he meant.
+# NOTE: This didn't seem to work for me in Lenny.  I worked around
+# the problem by putting my "post_create" scripts into the smb.conf file
+# - I used semicolons to put two scripts where one should go in /etc/samba/smb.conf .
+
+## And you must edit sambaSID to equal your local SID (ie. net getdomainsid)
+echo ""
+echo "Samba needs the password for your LDAP root user..."
+smbpasswd -W
+
+/etc/init.d/samba restart
+
+
