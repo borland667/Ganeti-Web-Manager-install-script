@@ -128,7 +128,7 @@ DEBIAN_PRIORITY="low" apt-get -y --allow-unauthenticated install slapd
 unset DEBIAN_PRIORITY
 # FIXME: Is unsetting of DEBCONF_PRIORITY required?
 
-if apt-get -y --allow-unauthenticated install apache2-mpm-prefork php5-snmp ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin; then
+if apt-get -y --allow-unauthenticated install apache2-mpm-prefork libapache2-mod-php5 php5-snmp ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin; then
 	echo "Installation of Fusion Directory and prerequisite packages successful..."
 else
 	echo "Installation of Fusion Directory and prerequisite packages failed.  Exiting..."
