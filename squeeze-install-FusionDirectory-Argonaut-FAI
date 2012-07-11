@@ -90,7 +90,7 @@ read dummy_value
 
 # Configure the ldap2repository tool.  ldap2repository creates a cron job to
 # run debmirror daily using repo information in LDAP.
-sed -i 's@mirrordir   = /srv/www/debian@mirrordir   = /var/www@' /etc/argonaut/argonaut.conf
+sed -i 's@mirrordir   = /srv/www/debian@mirrordir   = /var/www/debian@' /etc/argonaut/argonaut.conf
 sed -i 's@verbose     = no@verbose     = yes@' /etc/argonaut/argonaut.conf
 sed -i 's@cleanup     = no@cleanup     = yes@' /etc/argonaut/argonaut.conf
 
