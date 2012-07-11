@@ -133,7 +133,7 @@ a2ensite debmirror
 
 # The debmirror command should verify our mirror
 gpg --list-keys
-gpg --keyring /usr/share/keyrings/debian-archive-keyring.gpg --export \ | gpg --no-default-keyring --keyring trustedkeys.gpg --import
+gpg --keyring /usr/share/keyrings/debian-archive-keyring.gpg --export | gpg --no-default-keyring --keyring trustedkeys.gpg --import
 
 # The cron script to create the mirror lives in /etc/argonaut/fai/ .
 # FIXME: Are default permissions OK for this file?
