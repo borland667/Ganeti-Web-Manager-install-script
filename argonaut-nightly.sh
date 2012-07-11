@@ -5,8 +5,8 @@ repo_dir="/var/www/argonaut-beta"
 repo_origin="Strategic IT"
 repo_label="Mark P"
 repo_description="Marks APT Repository"
-builddir="/home/markp/builder"
-git_repo="http://git.fusiondirectory.org/main/argonaut-agents.git"
+builddir="/home/markp/builder/argonaut"
+git_repo="http://git.fusiondirectory.org/main/argonaut.git"
 #build_tool="pdebuild"
 build_tool="dpkg-buildpackage -b"
 version="1.0"
@@ -80,5 +80,5 @@ if [ $make_repo = 1 ]; then
 EOF
   
   cd $repo_dir
-  reprepro includedeb squeeze $builddir/argonaut-agents/*.deb
+  reprepro includedeb squeeze $builddir/*.deb
 fi
