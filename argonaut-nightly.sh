@@ -2,10 +2,10 @@
 argonaut_pkg_list="libpoe-component-schedule-perl libpoe-component-server-jsonrpc-perl argonaut-fuse argonaut-fai-client argonaut-fai-mirror argonaut-fai-nfsroot argonaut-common argonaut-server"
 zulutime=`date -u +%y%m%d%H%M`
 repo_dir="/var/www/argonaut-beta"
-repo_origin="Strategic IT"
-repo_label="Mark P"
-repo_description="Marks APT Repository"
-builddir="/home/markp/builder/argonaut"
+repo_origin="Fusion Directory"
+repo_label="Argonaut"
+repo_description="Argonaut APT Repository"
+builddir="$HOME/builder"
 git_repo="http://git.fusiondirectory.org/main/argonaut.git"
 #build_tool="pdebuild"
 build_tool="dpkg-buildpackage -b"
@@ -25,9 +25,9 @@ if [ ! -d "$builddir" ]; then
 fi
 
 cd $builddir
-rm -Rf $builddir/argonaut-agents
+rm -Rf argonaut/argonaut-agents
 git clone $git_repo
-cd argonaut-agents
+cd argonaut
 apt-get install reprepro
 
 if [ ! -d /var/cache/pbuilder/base.tgz ] && [ "$build_tool" == "pdebuild" ]; then
@@ -38,7 +38,7 @@ if [ ! -d /var/cache/pbuilder/base.tgz ] && [ "$build_tool" == "pdebuild" ]; the
   pbuilder create
 fi
 
-if [ "$build_tool" = "dpkg-buildpackage -b" ]; then
+if [ "$build_tool" == "dpkg-buildpackage -b" ]; then
   apt-get -y --allow-unauthenticated install libclass-singleton-perl libpoe-perl libdatetime-timezone-perl libdatetime-locale-perl libfilter-perl liblist-moreutils-perl libparams-validate-perl libset-infinite-perl libdatetime-set-perl libdatetime-perl libpoe-perl dpkg-dev
 fi
 
@@ -80,5 +80,5 @@ if [ $make_repo = 1 ]; then
 EOF
   
   cd $repo_dir
-  reprepro includedeb squeeze $builddir/*.deb
+  reprepro includedeb squeeze $builddir/argonaut/*.deb
 fi
