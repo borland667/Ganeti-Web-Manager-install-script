@@ -39,7 +39,7 @@ if [ ! -d /var/cache/pbuilder/base.tgz ] && [ "$build_tool" == "pdebuild" ]; the
 fi
 
 if [ "$build_tool" == "dpkg-buildpackage -b" ]; then
-  apt-get -y --allow-unauthenticated install libclass-singleton-perl libpoe-perl libdatetime-timezone-perl libdatetime-locale-perl libfilter-perl liblist-moreutils-perl libparams-validate-perl libset-infinite-perl libdatetime-set-perl libdatetime-perl libpoe-perl dpkg-dev
+  apt-get -y --allow-unauthenticated install libclass-singleton-perl libpoe-perl libdatetime-locale-perl libparams-validate-perl libset-infinite-perl libdatetime-timezone-perl libdatetime-locale-perl libfilter-perl liblist-moreutils-perl libparams-validate-perl libset-infinite-perl libdatetime-set-perl libdatetime-perl libpoe-perl dpkg-dev
 fi
 
 echo $argonaut_pkg_list|tr [:blank:] '\n'|while read package
