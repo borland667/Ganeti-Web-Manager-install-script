@@ -329,6 +329,18 @@ sed -i 's@#FAI_CONFIG_SRC=nfs://yourservername/path/to/config/space@FAI_CONFIG_S
 #        ie. client being configured to use eth1 instead of eth0
 sed -i 'N;/client_port = 8081\ninterface   = eth1/s/interface   = eth1/interface  = eth0/;P;D' /etc/argonaut/argonaut.conf
 
+echo "Which architecture do FAI clients use:"
+echo "1) Same as the server [default]"
+echo "2) i386"
+echo "3) amd64"
+echo "Enter your choice..."
+read ARCHITECTURE
+if [ "$ARCHITECTURE" = "1" ]; then    echo "Going with default..."
+elif [ "$ARCHITECTURE" = "2" ]; then    sed -i 's@FAI_DEBOOTSTRAP_OPTS="@FAI_DEBOOTSTRAP_OPTS="--arch=i386 @' /etc/fai/make-fai-nfsroot.conf
+elif [ "$ARCHITECTURE" = "3" ]; then    sed -i 's@FAI_DEBOOTSTRAP_OPTS="@FAI_DEBOOTSTRAP_OPTS="--arch=amd64 @' /etc/fai/make-fai-nfsroot.conf
+fi
+
+
 # Create fai NFSROOT.  Run with -v for verbose output.
 make-fai-nfsroot -v
 # Log file written to /var/log/fai/make-fai-nfsroot.log
