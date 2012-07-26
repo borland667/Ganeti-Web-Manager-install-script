@@ -30,7 +30,7 @@ git clone $git_repo
 cd argonaut
 apt-get install reprepro
 
-if [ ! -d /var/cache/pbuilder/base.tgz ] && [ "$build_tool" == "pdebuild" ]; then
+if [ ! -d /var/cache/pbuilder/base.tgz ] && [ "$build_tool" = "pdebuild" ]; then
   echo "No pbuilder cache.  Building one will require time, and"
   echo "downloading an entire build environment from the net."
   echo "Ctrl-C to exit, or any other key to continue..."
@@ -38,7 +38,7 @@ if [ ! -d /var/cache/pbuilder/base.tgz ] && [ "$build_tool" == "pdebuild" ]; the
   pbuilder create
 fi
 
-if [ "$build_tool" == "dpkg-buildpackage -b" ]; then
+if [ "$build_tool" = "dpkg-buildpackage -b" ]; then
   apt-get -y --allow-unauthenticated install libclass-singleton-perl libpoe-perl libdatetime-locale-perl libparams-validate-perl libset-infinite-perl libdatetime-timezone-perl libdatetime-locale-perl libfilter-perl liblist-moreutils-perl libparams-validate-perl libset-infinite-perl libdatetime-set-perl libdatetime-perl libpoe-perl dpkg-dev
 fi
 
