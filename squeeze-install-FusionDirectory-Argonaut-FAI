@@ -543,6 +543,11 @@ sed -i 's@copyPaste="false"@copyPaste="true"@' /etc/fusiondirectory/fusiondirect
 fusiondirectory-setup --update-cache --update-locales
 /etc/init.d/apache2 restart
 
+# FIXME: This bug patch won't need to be applied in the next version
+#        (in Aug 2012)
+cd /tmp
+wget https://forge.fusiondirectory.org/attachments/download/671/0001-Fixes-1160-Failed-to-add-packages-in-Package-list-di.patch
+patch /usr/share/fusiondirectory/plugins/admin/fai/class_faiPackage.inc 0001-Fixes-1160-Failed-to-add-packages-in-Package-list-di.patch 
 
 # FIXME: We need to give some further instruction on using FAI /w Fusion
 #        Directory here.
