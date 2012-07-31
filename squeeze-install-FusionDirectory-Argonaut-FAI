@@ -220,6 +220,7 @@ sed -i '0,/password/s@^password=@password='$LDAP_ADMIN_PW'@' /etc/argonaut/argon
 
 # When our clients netboot they need to know where to pull their packages from
 sed -i 's@FAI_DEBOOTSTRAP=".*"@FAI_DEBOOTSTRAP="squeeze http://'`hostname --fqdn`'/debian"@' /etc/fai/make-fai-nfsroot.conf
+# FIXME: If we have a local argonaut-beta repo this should be here too.
 # We need make-fai-nfsroot to do some extra FusionDirectory-specific steps eg.
 # copy configuration from LDAP etc...  A hook script to do this has been
 # placed in /etc/fai/nfsroot-hooks, and we uncomment the NFSROOT_HOOKS
@@ -249,10 +250,7 @@ sed -i "s@\$1\$.*\'@"`echo $client_root_pw | mkpasswd -Hmd5 -s`"'@" /etc/fai/mak
 
 #-------------------------------------------------------------
 
-# make-fai-nfsroot needs to know where to install packages from.
-# FIXME: Does this also get installed into the final /etc/apt/sources.list
-#        for clients?
-# FIXME: This repo should also have a local mirror!
+# make-fai-nfsroot needs a sources.list file to install.
 # FIXME: At the moment I need a combination of TWO FusionDirectory repos.
 #        Delete later and either make a local FusionDirectory repo, or some
 #        other solution.
@@ -596,9 +594,19 @@ echo "                    filename, and "`hostname --fqdn`" as 'next server'."
 #### chain.c32 is found in /usr/lib/syslinux/
 # DEFAULT chain.c32 hd0 0
 #### Video mode (kernel option for more text on FAI client screen):
-# vga=0x10C
+# see /etc/argonaut/argonaut-fuse.conf and change the vga=0 to eg.
+# vga=0x318
 #### Grub files :
 # grub-pc grub-common
 ##### Base files for FAI client :
 # base-files base-passwd bash bsdutils coreutils debconf debconf-i18n debianutils diffutils dpkg e2fslibs e2fsprogs findutils gcc-4.3-base gcc-4.4-base grep gzip hostname initscripts libacl1 libattr1 libblkid1 libc-bin libc6 libcomerr2 libdevmapper1.02.1 libgcc1 liblocale-gettext-perl libncurses5 libpam-modules libpam-runtime libpam0g libselinux1 libsepol1 libslang2 libss2 libstdc++6 libtext-charwidth-perl libtext-iconv-perl libtext-wrapi18n-perl libunwind7 libuuid1 login lsb-base lzma mawk mount ncurses-base ncurses-bin passwd perl-base procps sed sensible-utils sysv-rc sysvinit sysvinit-utils tar tzdata util-linux zlib1g
+# Check out /usr/share/doc/fai-doc/examples/simple/scripts for important
+# scripts for eg. setting the root password and installing grub.
+# /usr/share/doc/fai-doc/examples/simple/scripts/GRUB_PC/10-setup seems to
+# install and configure grub.
+# 
+# This second script also needs an encrypted root password in a variable
+# called ROOTPW.
+# FIXME: Is exactly 8 characters required?
+# mkpasswd -m sha-512 <password> <eight character salt>
 
