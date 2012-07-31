@@ -608,5 +608,7 @@ echo "                    filename, and "`hostname --fqdn`" as 'next server'."
 # This second script also needs an encrypted root password in a variable
 # called ROOTPW.
 # FIXME: Is exactly 8 characters required?
+# mkpasswd -m md5 <password> <eight character salt>
+# ...not sure about Debian Wheezy, but perhaps this will be required?
 # mkpasswd -m sha-512 <password> <eight character salt>
 
