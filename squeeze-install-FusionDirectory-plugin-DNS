@@ -16,6 +16,10 @@ if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
   exit 1
 fi
 
+# squeeze-install-FusionDirectory-Argonaut
+if [ ! -f /etc/argonaut/argonaut.conf ]; then  echo "Run the squeeze-install-FusionDirectory-Argonaut script."  echo "Argonaut must be installed and configured before we can continue."  exit 1
+fi
+
 # Install required software :
 # Bind9 - the DNS server
 # ldap2zone - converts LDAP DNS records into a text config file for Bind9.
@@ -125,10 +129,7 @@ else
 fi
 ##### END LDAP2ZONE CONFIG #####
 
-## FIXME:There's a RUN_DEPLOY option in /etc/default/ldap2zone...  I don't THINK
-## we need this configured, but perhaps I am wrong.  Its for running a cron
-## job.  (Does the gosa-si stuff take care of updating DNS zones now?)
-## It MAY be good to run both a cron and gosa-si (???)
+sed -i 's@RUN_DEPLOY="false"@RUN_DEPLOY="true"@' /etc/default/ldap2zone/default
 
 ## If our LDAP server doesn't accept anonymous binds we might need the admin
 ## accounts DN as part of our ldap2zone conf.  Leaving the following line

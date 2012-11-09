@@ -26,7 +26,9 @@ fi
 
 cd $builddir
 rm -Rf argonaut/argonaut-agents
-git clone $git_repo
+#FIXME: For the moment we use the development branch.  Perhaps in future this
+#       will not be wise?
+git clone -b develop $git_repo
 cd argonaut
 apt-get install reprepro
 
