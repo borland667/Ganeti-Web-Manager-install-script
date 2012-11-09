@@ -30,22 +30,8 @@ fi
 # dpkg-dev, subversion - needed for downloading and building the
 # ldap2zone package
 apt-get update
-apt-get -y --allow-unauthenticated install bind9 dpkg-dev libldap2-dev ldap-utils subversion fusiondirectory-plugin-dns fusiondirectory-plugin-dns-schema debhelper dpatch
+apt-get -y --allow-unauthenticated install bind9 dpkg-dev libldap2-dev ldap-utils subversion fusiondirectory-plugin-dns fusiondirectory-plugin-dns-schema debhelper dpatch argonaut-ldap2zone
 
-# The ldap2zone tool needs to be downloaded in source form, compiled, bundled
-# into a deb and installed.  Note:: I change one of the debian dependancies so
-# the package works in Debian Lenny and Squeeze.
-cd /usr/src
-#FIXME: This is the old repo...  left it here just in case.  Remove when new one is proven.
-#svn co https://oss.gonicus.de/repositories/goto/branches/goto2/ldap2zone
-if apt-get -qq --allow-unauthenticated install ldap2zone; then
-	echo "Installed ldap2zone from repositories..."
-else
-	svn co https://oss.gonicus.de/repositories/goto/trunk/ldap2zone
-	cd /usr/src/ldap2zone
-	dpkg-buildpackage -b
-	dpkg -i /usr/src/ldap2zone_*.deb
-fi
 # We need to configure slapd to include this dnszone schema.  We've also
 # added a couple of (optional) indexes here to boost performance.
 # FIXME: Once ldifs are bundled with Fusion Directory this can go...
@@ -173,6 +159,10 @@ echo "eg. 'example.com', '192.168.1.0', 'ns1.example.com' and 'me@example.com'"
 echo "NOTE::Your zone won't be saved until you hit 'Save' and then 'OK'"
 echo "You must then enable DNS for at least one host eg. your current server"
 echo "object."
+#FIXME: Mention enabling an argonaut-dns object...  and explain some concepts
+#       like (as benoit says) :
+#        "allow notify" is used for notification between master/slave dns
+#        like 194.134.35.45;123.56.45.78;
 echo "< WHEN FINISHED hit enter to continue... >"
 read my_dummy_value
 

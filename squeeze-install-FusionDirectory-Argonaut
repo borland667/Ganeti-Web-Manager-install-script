@@ -53,7 +53,7 @@ fi
 # NOTE:: We install argonaut-client as well as the server because both 
 # Fusion Directory and the infrastructure we're controlling are on the one box.
 
-if apt-get -y --allow-unauthenticated install argonaut-client-management argonaut-server argonaut-common; then
+if apt-get -y --allow-unauthenticated install fusiondirectory-plugin-argonaut fusiondirectory-plugin-argonaut-schema argonaut-client-management argonaut-server argonaut-common; then
 	echo "Installation of Argonaut and prerequisite packages successful..."
 else
 	echo "Installation of Argonaut and prerequisite packages failed.  Exiting..."
@@ -61,6 +61,8 @@ else
 fi 
 
 # Argonaut needs to be configured. :
+
+ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/argonaut.ldif
 
 # We raid Fusion Directory's config file, and examine our network config for
 # values we need to configure Argonaut :
@@ -89,6 +91,14 @@ sed -i 's@<location name=.*$'\
 # Enable argonaut daemon
 sed -i 's@START_SERVER=0@START_SERVER=1@' /etc/default/argonaut-server
 sed -i 's@START_CLIENT=0@START_CLIENT=1@' /etc/default/argonaut-client-management
+
+echo ""
+echo "You must now add an Argonaut server object to LDAP."
+echo "Also, you must enable the Argonaut Client functionality in the"
+echo "tab of this name"
+#FIXME: Make better wording, and understand better.
+echo "< WHEN FINISHED hit enter to continue... >"
+read my_dummy_value
 
 # We need to restart the argonaut daemon.  
 /etc/init.d/argonaut-server stop
