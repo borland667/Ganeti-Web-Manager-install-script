@@ -30,7 +30,7 @@ rm -Rf argonaut/argonaut-agents
 #       will not be wise?
 git clone -b develop $git_repo
 cd argonaut
-apt-get install reprepro
+apt-get install reprepro debhelper
 
 if [ ! -d /var/cache/pbuilder/base.tgz ] && [ "$build_tool" = "pdebuild" ]; then
   echo "No pbuilder cache.  Building one will require time, and"
