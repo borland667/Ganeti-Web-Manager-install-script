@@ -41,14 +41,15 @@ if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
 	echo ""
 	echo "You should really make your hostname resolve to a valid network IP."
 	echo "This is required for plugins such as OPSI and is generally a good idea."
-	echo "To do this edit your /etc/hosts file and make sure your hostname"
-	echo "(printed above) resolves to an IP other than 127.x.x.x"
-	echo "Your /etc/network/interfaces will also need to match. eg. :"
-	echo "iface eth0 inet static"
-	echo "    address 192.168.1.120"
-	echo "    netmask 255.255.255.0"
-	echo "    gateway 192.168.1.1"
-	echo "To make this take effect : killall dhclient3;ifdown eth0;ifup eth0"
+	echo "To do this:"
+	echo "1) edit your /etc/hosts file and make sure your hostname"
+	echo "   resolves to an IP other than 127.x.x.x"
+	echo "2) Your /etc/network/interfaces will need to match. eg. :"
+	echo "   iface eth0 inet static"
+	echo "     address 192.168.1.120"
+	echo "     netmask 255.255.255.0"
+	echo "     gateway 192.168.1.1"
+	echo "To make this take effect : killall dhclient;ifdown eth0;ifup eth0"
 	echo "'Ctrl-C' to exit or hit <enter> to continue..."
 	read my_dummy_value 
 fi
@@ -128,7 +129,7 @@ DEBIAN_PRIORITY="low" apt-get -y --allow-unauthenticated install slapd
 unset DEBIAN_PRIORITY
 # FIXME: Is unsetting of DEBCONF_PRIORITY required?
 
-if apt-get -y --allow-unauthenticated install apache2-mpm-prefork libapache2-mod-php5 php5-snmp ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin; then
+if apt-get -y --allow-unauthenticated install apache2-mpm-prefork libapache2-mod-php5 php5-snmp php-mdb2 php-mdb2-driver-mysql ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin; then
 	echo "Installation of Fusion Directory and prerequisite packages successful..."
 else
 	echo "Installation of Fusion Directory and prerequisite packages failed.  Exiting..."
