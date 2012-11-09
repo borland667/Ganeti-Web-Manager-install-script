@@ -17,7 +17,10 @@ if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
 fi
 
 # squeeze-install-FusionDirectory-Argonaut
-if [ ! -f /etc/argonaut/argonaut.conf ]; then  echo "Run the squeeze-install-FusionDirectory-Argonaut script."  echo "Argonaut must be installed and configured before we can continue."  exit 1
+if [ ! -f /etc/argonaut/argonaut.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory-Argonaut script."
+  echo "Argonaut must be installed and configured before we can continue."
+  exit 1
 fi
 
 # Install required software :
