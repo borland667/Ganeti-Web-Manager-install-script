@@ -53,7 +53,7 @@ fi
 # NOTE:: We install argonaut-client as well as the server because both 
 # Fusion Directory and the infrastructure we're controlling are on the one box.
 
-if apt-get -y --allow-unauthenticated install fusiondirectory-plugin-argonaut fusiondirectory-plugin-argonaut-schema argonaut-client-management argonaut-server argonaut-common; then
+if apt-get -y --allow-unauthenticated install fusiondirectory-plugin-argonaut fusiondirectory-plugin-argonaut-schema fusiondirectory-plugin-systems argonaut-client-management argonaut-server argonaut-common; then
 	echo "Installation of Argonaut and prerequisite packages successful..."
 else
 	echo "Installation of Argonaut and prerequisite packages failed.  Exiting..."
