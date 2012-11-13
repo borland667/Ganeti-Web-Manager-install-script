@@ -139,9 +139,6 @@ fi
 # ldap2zone requires this file to be created
 touch /etc/bind/named.conf.ldap2zone
 
-# FIXME: This is a patched a nasty bug in GOsa 2.6.10.  Remove once this is fixed
-sed -i 's@notify;@notify yes;@' /usr/sbin/ldap2bind
-
 ## FIXME: This command may not be required.  Test...
 fusiondirectory-setup --update-cache --update-locales
 
@@ -170,6 +167,5 @@ echo "ldap2bind being run for the first time..."
 echo "NOTE: This will give errors unless at least one host has been added to DNS."
 # Make sure bind is running first...
 /etc/init.d/bind9 restart
-ldap2bind
 
 #FIXME: Perhaps some instructions on checking name resolution is functioning correctly?
