@@ -24,21 +24,20 @@ if [ ! -f /etc/cyrus.conf ] || [ ! -f /etc/postfix/main.cf ]; then
   exit 1
 fi
 
-echo "WARNING! : At this time this script only works with Debian Squeeze"
-echo "as at the time of writing debs are only available for squeeze (and"
-echo "intrepid).  Feel free to expand this script beyond this scope."
+echo "WARNING! : At this time this script only works with Debian Wheezy"
+echo "Feel free to expand this script beyond this scope."
 echo "Ctrl-C to exit, or <enter> to continue :"
 read dummy_val
 
 cat >> /etc/apt/sources.list <<-EOF
-	deb http://inverse.ca/debian squeeze squeeze
+	deb http://inverse.ca/debian wheezy wheezy
 EOF
 
 # FIXME: I THINK installing all the postgresql-8.4 stuff first should stop
 #        mysql-server being installed...  make sure this is the case and
 #        remove this note.
 apt-get update
-if apt-get -y --allow-unauthenticated install postgresql-8.4 apache2 apache2-mpm-prefork sope4.9-gdl1-postgresql sope4.9-libxmlsaxdriver sope4.9-stxsaxdriver; then
+if apt-get -y --allow-unauthenticated install postgresql-9.1 apache2 apache2-mpm-prefork sope4.9-gdl1-postgresql sope4.9-libxmlsaxdriver sope4.9-stxsaxdriver; then
 	echo "SOGo prerequisite packages successfully installed..."
 else
 	echo "There was a failure installing the SOGo prerequisite packages.  Exiting..."

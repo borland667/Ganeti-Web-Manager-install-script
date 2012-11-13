@@ -304,9 +304,9 @@ fi
 
 
 # Make user admin a cyrus admin in imapd.conf
-# FIXME: should probably test if user "admin" already exists in admins: section
+# FIXME: should probably test if user "fd-admin" already exists in admins: section
 sed -i 's@#admins@admins@' /etc/imapd.conf
-sed -i 's@^admins:.*$@& admin@' /etc/imapd.conf
+sed -i 's@^admins:.*$@& fd-admin@' /etc/imapd.conf
 
 # FIXME: Does sieve only need to listen on the local machine?
 # FIXME: Is there a way to only allow ssl connections to sieve?
@@ -445,27 +445,6 @@ ldap_tls_key: /etc/ssl/private/ssl-cert-snakeoil.key" > /etc/saslauthd.conf
 # /usr/sbin/saslauthd -d -a ldap -m /var/run/saslauthd
 # If while debugging you get a [reason=Unknown] in your debug output it
 # is possible your /etc/saslauthd.conf is wrong/corrupt.
-
-# Now for the anti-spam and antivirus stuff
-# First, we add the volatile debian repositories (because this is a way of using
-# the latest clamav engine).  We test for both Lenny and Squeeze :
-if grep 5.0 /etc/debian_version; then
-cat >> /etc/apt/sources.list <<- EOF
-	deb http://volatile.debian.org/debian-volatile lenny/volatile main
-	deb-src http://volatile.debian.org/debian-volatile lenny/volatile main
-EOF
-fi
-
-## Squeeze doesn't need to include the volatile repositories yet, as it hasn't
-## been released (at the time this was written).
-#if grep squeeze /etc/debian_verion; then
-#cat >> /etc/apt/sources.list <<- EOF
-#	deb http://volatile.debian.org/debian-volatile squeeze/volatile main
-#	deb-src http://volatile.debian.org/debian-volatile squeeze/volatile main
-#EOF
-#fi
-
-# Do we need anything like the above for Ubuntu?
 
 # Now we install required software.
 apt-get -y install amavisd-new spamassassin clamav clamav-daemon zoo unzip bzip2 libnet-ph-perl libnet-snpp-perl libnet-telnet-perl nomarch lzop pyzor sa-learn-cyrus cabextract pax ripole unrar-free
