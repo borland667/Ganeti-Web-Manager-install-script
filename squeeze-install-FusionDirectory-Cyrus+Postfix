@@ -584,6 +584,7 @@ fusiondiretory-setup --update-cache --update-locales
 
 # Restart all relevent daemons
 # (probably all don't need a restart)
+freshclam
 /etc/init.d/clamav-daemon restart
 /etc/init.d/clamav-freshclam restart
 /etc/init.d/spamassassin restart
@@ -600,7 +601,7 @@ echo "To activate Cyrus in Fusion Directory create an IMAP/POP3 service in your"
 echo "server-object and fill in the following values :"
 echo "Server identifier - "`hostname --fqdn`
 echo "Connect URL - {"`hostname --fqdn`":993/ssl/novalidate-cert}"
-echo "Admin user - admin"
+echo "Admin user - fd-admin (if you used the default during setup)"
 echo "Password - <the password you entered during setup>"
 echo "Sieve connect URL - {127.0.1.1:4190/tls}"
 
