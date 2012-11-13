@@ -559,7 +559,7 @@ adduser clamav amavis
 # Pyzor  : Outgoing TCP port 24441
 
 # Update Fusion Directory's interface...
-fusiondiretory-setup --update-cache --update-locales
+fusiondirectory-setup --update-cache --update-locales
 
 # Restart all relevent daemons
 # (probably all don't need a restart)
