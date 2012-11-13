@@ -571,7 +571,7 @@ freshclam
 
 /etc/init.d/saslauthd restart
 /etc/init.d/postfix restart
-/etc/init.d/cyrus2.2 restart
+/etc/init.d/cyrus-imapd restart
 /etc/init.d/apache2 restart
 
 echo "Successfully finished configuration..."
