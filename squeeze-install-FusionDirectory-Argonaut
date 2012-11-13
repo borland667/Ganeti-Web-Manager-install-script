@@ -28,7 +28,7 @@ do
 
   if [ $REPO_CHOICE -eq 2 ]; then
     if [ ! -f /etc/apt/sources.list.d/argonaut.list ]; then
-      echo "deb http://repos.fusiondirectory.org/argonaut-beta/ ./" > /etc/apt/sources.list.d/argonaut.list
+      echo "deb http://repos.fusiondirectory.org/argonaut-develop/ ./" > /etc/apt/sources.list.d/argonaut.list
     fi
   fi
 done
