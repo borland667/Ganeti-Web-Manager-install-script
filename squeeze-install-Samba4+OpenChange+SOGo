@@ -9,6 +9,11 @@ echo "Feel free to expand this script beyond this scope."
 echo "Ctrl-C to exit, or <enter> to continue :"
 read dummy_val
 
+if [ ! -f /home/sogo ]; then
+  echo "SOGo is not installed...  please run the SOGo installer script."
+  exit 1
+fi
+
 apt-get update
 apt-get install -y --allow-unauthenticated samba4
 
