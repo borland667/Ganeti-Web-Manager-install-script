@@ -1,0 +1,59 @@
+# We must run this script as root
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+echo "WARNING! : At this time this script only works with Debian Wheezy"
+echo "Feel free to expand this script beyond this scope."
+echo "Ctrl-C to exit, or <enter> to continue :"
+read dummy_val
+
+apt-get update
+apt-get install -y --allow-unauthenticated samba4
+
+apt-get install -y --allow-unauthenticated openchangeserver sogo-openchange openchangeproxy openchange-ocsmanager openchange-rpcproxy
+
+
+# Removing existing Samba config may be required.
+rm /etc/samba/smb.conf
+
+echo ""
+echo "Please enter windows domain name for Samba4: "
+read domain_name
+echo "Please enter the Administrator password for the domain."
+echo "Password must be at least 7 chars containing both a number, and mixed case"
+echo "and/or non-alpha chars:"
+read domain_pass
+
+/usr/share/samba/setup/provision --realm=`hostname --domain` --domain=$domain_name --adminpass="$domain_pass" --server-role='domain controller'
+
+# Make changes required by OpenChange to Samba4 config.
+sed -i 's@\[global\]@\[global\]\
+\
+	\#\#\# Configuration required by OpenChange server \#\#\#\
+	dcerpc endpoint servers = epmapper, mapiproxy\
+	dcerpc_mapiproxy:server = true\
+	dcerpc_mapiproxy:interfaces = exchange_emsmdb, exchange_nsp, exchange_ds_rfr\
+	\#\#\# Configuration required by OpenChange server \#\#\#\
+@' /etc/samba/smb.conf
+
+# Samba4 is started as root, so link SOGo config to root home directory.
+ln -s ~sogo/GNUstep /root/
+
+echo ""
+echo "*** You can safely ignore the error in Step 1 of the following process ***"
+# The error that can be ignored during openchange_provision is the following :
+# “ERROR: no subClassOf 'serviceAdministrationPoint' for 'rRASAdministrationConnectionPoint'”
+openchange_provision
+
+/etc/init.d/samba4 start
+/etc/init.d/openchange-ocsmanager start
+
+# Enable required apache modules, and default-ssl site.
+a2enmod proxy proxy_http wsgi ssl headers rewrite
+a2ensite default-ssl
+
+update-rc.d apache2 defaults
+/etc/init.d/apache2 restart
+

@@ -9,31 +9,71 @@ if [ "$USER" != "root" ]; then
         exit 1
 fi
 
-# Make sure Fusion Directory has been installed...
-if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
-  echo "Run the squeeze-install-FusionDirectory script before this one.  It must be"
-  echo "installed and configured before we can continue..."
-  exit 1
-fi
-
-# ...and Cyrus+Postfix has been installed...
-if [ ! -f /etc/cyrus.conf ] || [ ! -f /etc/postfix/main.cf ]; then
-  echo "Run the squeeze-install-FusionDirectory-Cyrus+Postfix script before this one."
-  echo "We must have an email system installed and configured before we can"
-  echo "continue..."
-  exit 1
-fi
-
 echo "WARNING! : At this time this script only works with Debian Wheezy"
 echo "Feel free to expand this script beyond this scope."
 echo "Ctrl-C to exit, or <enter> to continue :"
 read dummy_val
 
+# Required for LDAP access a little further down...
+apt-get -y install ldap-utils
+
+# We need our LDAP admin dn and password...
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "FusionDirectory is not installed locally.  Cannot extract LDAP admin info."
+  echo "Please enter your LDAP admin dn (eg. cn=admin,dc=example,dc=com):"
+  read LDAP_ADMIN_DN
+  echo "Please enter your LDAP admin password:"
+  read LDAP_ADMIN_PW
+else
+  # fusiondirectory.conf contains some useful info we'll use later...
+  LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | \
+    awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+  echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
+  LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | \
+    awk -F'"' '{print $2 }'`
+  echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+fi
+
+if ldapsearch -x; then
+  LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | \
+    grep ^olcSuffix | awk '/ */{ print $2 }'`
+  echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
+  LDAP_HOSTNAME=localhost
+else
+  echo "Can't find any local LDAP configuration information..."
+  echo "Please enter your LDAP base DN (eg. dc=example,dc=com):"
+  read LDAP_BASE_DN
+  echo ""
+  echo "Please enter your LDAP server hostname (or ctrl-c to exit):"
+  read LDAP_HOSTNAME
+  #FIXME: need to test and verify.  Also, port???
+  cat >> /etc/ldap/ldap.conf <<-EOF
+	URI     ldaps://$LDAP_HOSTNAME/
+	
+	TLS_REQCERT never
+EOF
+fi
+
+# ...and Cyrus+Postgres server name...
+if [ ! -f /etc/cyrus.conf ] || [ ! -f /etc/postfix/main.cf ]; then
+  echo "Cyrus and Postfix aren't installed locally."
+  echo "Enter your email server hostname (or ctrl-c to exit):"
+  read EMAIL_HOSTNAME
+  if nc -z $EMAIL_HOSTNAME 25; then
+    echo "$EMAIL_HOSTNAME has an open smtp port...  continuing..."
+  else
+    echo "$EMAIL_HOSTNAME does not seem to be reachable.  Fix this."
+    exit 1
+  fi
+else
+  EMAIL_HOSTNAME="localhost"
+fi
+
 cat >> /etc/apt/sources.list <<-EOF
 	deb http://inverse.ca/debian wheezy wheezy
 EOF
 
-# FIXME: I THINK installing all the postgresql-8.4 stuff first should stop
+# FIXME: I THINK installing all the postgresql-9.1 stuff first should stop
 #        mysql-server being installed...  make sure this is the case and
 #        remove this note.
 apt-get update
@@ -95,15 +135,6 @@ fi
 # runtime.  Note the use of shell variables and inline commands during
 # configuration.
 
-LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
-echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
-
-LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '/ */{ print $2 }'`
-echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
-
-LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
-echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
-
 # FIXME: Don't make SOGoDefaultMailDomain equal dnsdomainname.  It should be set
 # to whatever Postfix is set to.
 
@@ -125,8 +156,8 @@ sudo -u sogo defaults write sogod SOGoFoldersSendEMailNotifications YES
 sudo -u sogo defaults write sogod SOGoACLsSendEMailNotifications YES
 sudo -u sogo defaults write sogod WOPort 20000
 sudo -u sogo defaults write sogod SOGoMailingMechanism smtp
-sudo -u sogo defaults write sogod SOGoSMTPServer localhost
-sudo -u sogo defaults write sogod SOGoIMAPServer localhost
+sudo -u sogo defaults write sogod SOGoSMTPServer $EMAIL_HOSTNAME
+sudo -u sogo defaults write sogod SOGoIMAPServer $EMAIL_HOSTNAME
 sudo -u sogo defaults write sogod OCSSessionsFolderURL postgresql://sogo:sogo@localhost:5432/sogo/sogo_sessions_folder
 
 
@@ -137,7 +168,7 @@ sudo -u sogo defaults write sogod SOGoUserSources '({CNFieldName = cn;
              bindDN="'$LDAP_ADMIN_DN'";
 	     bindFields = uid; encryption = ssl;
              bindPassword = '$LDAP_ADMIN_PW'; canAuthenticate = YES; displayName =
-             "Shared Addresses"; hostname = "localhost"; id = shared;
+             "Shared Addresses"; hostname = '$LDAP_HOSTNAME'; id = shared;
              isAddressBook = YES; port=636})'
 sudo -u sogo defaults write sogod SOGoProfileURL\
        'postgresql://sogo:'$POSTGRES_PW'@localhost:5432/sogo/sogo_user_profile'
