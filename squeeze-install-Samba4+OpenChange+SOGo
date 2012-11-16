@@ -62,3 +62,25 @@ a2ensite default-ssl
 update-rc.d apache2 defaults
 /etc/init.d/apache2 restart
 
+
+sudo -u sogo defaults write sogod SOGoUserSources '(
+{
+CNFieldName = displayName;
+IDFieldName = cn;
+UIDFieldName = sAMAccountName;
+IMAPLoginFileName = sAMAccountName;
+baseDN = "cn=Users,dc=strategicit,dc=homelinux,dc=net";
+bindDN = "cn=Administrator,cn=Users,dc=strategicit,dc=homelinux,dc=net";
+bindFields = (
+sAMAccountName
+);
+bindPassword = "pa##word";
+canAuthenticate = YES;
+displayName = "Shared Addresses";
+hostname = "127.0.0.1";
+id = samba;
+isAddressBook = YES;
+port = 389;
+}
+)'
+

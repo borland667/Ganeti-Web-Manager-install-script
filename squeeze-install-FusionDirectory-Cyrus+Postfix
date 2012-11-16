@@ -12,10 +12,41 @@ fi
 # FIXME: prerequisite scripts (we should test these have run :
 # squeeze-install-FusionDirectory
 if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
-  echo "Run the squeeze-install-FusionDirectory script before this one."
-  echo "Fusion Directory must be installed and configured before we can"
-  echo "continue..."
-  exit 1
+  echo "FusionDirectory is not installed locally.  Cannot autopopulate admin info."
+  echo "Please enter your LDAP admin dn (eg. cn=admin,dc=example,dc=com):"
+  read LDAP_ADMIN_DN
+  echo "Please enter your LDAP admin password:"
+  read LDAP_ADMIN_PW
+else
+  # fusiondirectory.conf contains some useful info we'll use later...
+  LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | \
+    awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+  echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
+  LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | \
+    awk -F'"' '{print $2 }'`
+  echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+fi
+
+if ldapsearch -x; then
+  LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | \
+    grep ^olcSuffix | awk '/ */{ print $2 }'`
+  echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
+  #FIXME: This really needs to come from /etc/ldap/ldap.conf because it may
+  #       be nonlocal.
+  LDAP_HOSTNAME=`grep "^URI" /etc/ldap/ldap.conf | awk -F'/' '{print $3 }'`
+else
+  echo "Can't find any local LDAP configuration information..."
+  echo "Please enter your LDAP base DN (eg. dc=example,dc=com):"
+  read LDAP_BASE_DN
+  echo ""
+  echo "Please enter your LDAP server hostname (or ctrl-c to exit):"
+  read LDAP_HOSTNAME
+  #FIXME: need to test and verify.  Also, port???
+  cat >> /etc/ldap/ldap.conf <<-EOF
+	URI     ldaps://$LDAP_HOSTNAME/
+	
+	TLS_REQCERT never
+EOF
 fi
 
 echo "Downloading package lists...  This may take a while..."
@@ -64,13 +95,6 @@ else
 	exit 1
 fi
 
-LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
-echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
-LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '{ print $2 }'`
-echo "Base DN extracted from LDAP (cn=config): "$LDAP_BASE_DN
-LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
-echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
-
 ## ****** THIS IS WHERE GOSA-SI INSTALLATION WAS CUT FROM THIS SCRIPT ******
 ##
 ## This part of the script was refactored into another script as other services
@@ -112,7 +136,7 @@ cp -a /dev/urandom /var/spool/postfix/dev
 
 # The LDAP connection details for looking up email aliases are put into the
 # /etc/postfix/ldap-aliases.cf file.
-echo "server_host = ldaps://localhost" > /etc/postfix/ldap-aliases.cf
+echo "server_host = ldaps://"$LDAP_HOSTNAME > /etc/postfix/ldap-aliases.cf
 echo "server_port = 636" >> /etc/postfix/ldap-aliases.cf
 echo "version = 3" >> /etc/postfix/ldap-aliases.cf
 echo "start_tls = no" >> /etc/postfix/ldap-aliases.cf
@@ -280,6 +304,11 @@ if ! grep  'mailMethod=' /etc/fusiondirectory/fusiondirectory.conf; then
 	echo "Added a mailMethod entry to fusiondirectory.conf"
 else
 	echo "A mailMethod entry is already enabled in your fusiondirectory.conf"
+	echo "Or else FusionDirectory is non-local.  NOTE!!! - this means"
+        echo "you'll have to manually add mailMethod and mailAttribute to your"
+	echo "fusiondirectory.conf."
+ 	echo "<read the above, then hit any key to continue...>"
+	read dummy
 fi
 
 # Configure mailAttribute in fusiondirectory.conf.
@@ -410,7 +439,7 @@ fi
 echo 'PARAMS="-O /etc/saslauthd.conf"' >> /etc/default/saslauthd
 
 # 4) Create /etc/saslauthd.conf and populate with LDAP connection info :
-echo "ldap_servers:     ldaps://localhost/
+echo "ldap_servers:     ldaps://"$LDAP_HOST"/
 ldap_version:     3
 ldap_timeout:     10
 ldap_time_limit:  10

@@ -19,7 +19,7 @@ apt-get -y install ldap-utils
 
 # We need our LDAP admin dn and password...
 if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
-  echo "FusionDirectory is not installed locally.  Cannot extract LDAP admin info."
+  echo "FusionDirectory is not installed locally.  Cannot autopopulate admin info."
   echo "Please enter your LDAP admin dn (eg. cn=admin,dc=example,dc=com):"
   read LDAP_ADMIN_DN
   echo "Please enter your LDAP admin password:"
@@ -38,7 +38,7 @@ if ldapsearch -x; then
   LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | \
     grep ^olcSuffix | awk '/ */{ print $2 }'`
   echo "Base DN extracted from slapd.d configuration : "$LDAP_BASE_DN
-  LDAP_HOSTNAME=localhost
+  LDAP_HOSTNAME=`grep "^URI" /etc/ldap/ldap.conf | awk -F'/' '{print $3 }'`
 else
   echo "Can't find any local LDAP configuration information..."
   echo "Please enter your LDAP base DN (eg. dc=example,dc=com):"
