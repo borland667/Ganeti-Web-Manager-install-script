@@ -439,7 +439,7 @@ fi
 echo 'PARAMS="-O /etc/saslauthd.conf"' >> /etc/default/saslauthd
 
 # 4) Create /etc/saslauthd.conf and populate with LDAP connection info :
-echo "ldap_servers:     ldaps://"$LDAP_HOST"/
+echo "ldap_servers:     ldaps://"$LDAP_HOSTNAME"/
 ldap_version:     3
 ldap_timeout:     10
 ldap_time_limit:  10
