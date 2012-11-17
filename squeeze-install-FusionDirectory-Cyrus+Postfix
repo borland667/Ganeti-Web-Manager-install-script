@@ -637,6 +637,10 @@ freshclam
 /etc/init.d/cyrus-imapd restart
 /etc/init.d/apache2 restart
 
+#FIXME: This is a bugfix for incorrect permissions on the sieve directory under
+#       Wheezy...  remove this once it's fixed.
+chown cyrus.mail -R /var/spool/sieve/*
+
 echo "Successfully finished configuration..."
 echo ""
 echo "To activate Cyrus in Fusion Directory create an IMAP/POP3 service in your"
