@@ -162,7 +162,7 @@ fi
 ## depend on gosa-si.
 
 echo "Installing Cyrus IMAP..."
-if apt-get -y install cyrus-imapd-2.4 sasl2-bin libsasl2-modules-ldap; then
+if apt-get -y install cyrus-imapd sasl2-bin libsasl2-modules-ldap; then
 # ...the following packages will be required if we enable Kerberos.
 #libsasl2-modules-gssapi-heimdal - GSSAPI plugin
 #libsasl2-modules-gssapi-mit
@@ -225,12 +225,12 @@ echo "Created and populated /etc/postfix/ldap-aliases.cf"
 # If the email address is configured for an account it will be printed to the
 # commandline, otherwise it will produce no output.  If there's an error with
 # connecting to LDAP there will be an error produced.
-# Also the cyrus-clients-2.4 package (which contains imtest) is useful.
+# Also the cyrus-clients package (which contains imtest) is useful.
 # eg. imtest -u user -a user -p 993 -s localhost
 # where -a = authentication username, -u = authorisation username,
 # -p = port, -s = connect using ssl 
 # If authentication works fine, but there are other problems cyradm can help
-# (found in the cyrus-admin-2.4 package).
+# (found in the cyrus-admin package).
 # cyradm --user <admin username> --server localhost
 
 # Configure Postfix to deliver mail to Cyrus via a unix socket.
