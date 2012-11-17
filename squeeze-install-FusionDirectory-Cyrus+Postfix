@@ -9,6 +9,32 @@ if [ "$USER" != "root" ]; then
         exit 1
 fi
 
+if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
+	echo ""
+	echo "You should really make your hostname resolve to a valid network IP."
+	echo "This is required for plugins such as OPSI and is generally a good idea."
+	echo "To do this:"
+	echo "1) edit your /etc/hosts file and make sure your hostname"
+	echo "   resolves to an IP other than 127.x.x.x"
+	echo "2) Your /etc/network/interfaces will need to match. eg. :"
+	echo "   iface eth0 inet static"
+	echo "     address 192.168.1.120"
+	echo "     netmask 255.255.255.0"
+	echo "     gateway 192.168.1.1"
+	echo "To make this take effect : killall dhclient;ifdown eth0;ifup eth0"
+	echo "'Ctrl-C' to exit or hit <enter> to continue..."
+	read my_dummy_value 
+fi
+
+echo "Downloading package lists...  This may take a while..."
+if apt-get -qq update; then
+        echo "Success!"
+        echo ""
+else
+        echo "Failure to download package information.  Exiting..."
+        exit 1
+fi
+
 # FIXME: prerequisite scripts (we should test these have run :
 # squeeze-install-FusionDirectory
 if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
@@ -17,6 +43,16 @@ if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
   read LDAP_ADMIN_DN
   echo "Please enter your LDAP admin password:"
   read LDAP_ADMIN_PW
+  echo ""
+  echo "On your FusionDirectory setting run the following:"
+  echo "apt-get install fusiondirectory-plugin-mail"
+  echo "Now edit /etc/fusiondirectory/fusiondirectory.conf on your FD server."
+  echo "You must add also the following two settings to your 'location':"
+  echo "mailMethod=\"Cyrus\""
+  echo "...and edit mailAttribute to use uid ie. :"
+  echo "mailAttribute=\"uid\""
+  echo "<edit your fusiondirectory.conf, then hit any key to continue...>"
+  read dummy
 else
   # fusiondirectory.conf contains some useful info we'll use later...
   LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | \
@@ -25,6 +61,39 @@ else
   LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | \
     awk -F'"' '{print $2 }'`
   echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+  apt-get -y install fusiondirectory-plugin-main
+
+  # Emable Cyrus mailMethod in fusiondirectory.conf
+  if ! grep  'mailMethod=' /etc/fusiondirectory/fusiondirectory.conf; then
+	sed -i 's@<location.*'\
+'@&\
+              mailMethod="Cyrus"'\
+'@' /etc/fusiondirectory/fusiondirectory.conf
+	echo "Added a mailMethod entry to fusiondirectory.conf"
+  else
+	echo "A mailMethod entry is already enabled in your fusiondirectory.conf"
+	echo "Or else FusionDirectory is non-local.  NOTE!!! - this means"
+        echo "you'll have to manually add mailMethod and mailAttribute to your"
+	echo "fusiondirectory.conf."
+ 	echo "<read the above, then hit any key to continue...>"
+	read dummy
+  fi
+  # Configure mailAttribute in fusiondirectory.conf.
+  # (This will be uid, but for virtual domain support mailAttribute should
+  # become "mail"...  modify the if-statement below if virtual domain support
+  # is needed).
+  if ! grep 'mailAttribute=' /etc/fusiondirectory/fusiondirectory.conf; then
+	sed -i 's@<location.*'\
+'@&\
+              mailAttribute="uid"'\
+'@' /etc/fusiondirectory/fusiondirectory.conf
+	echo "Added a mailAttribute entry to fusiondirectory.conf"
+  else
+	echo "A mailAttribute entry is already enabled in your fusiondirectory.conf."
+	echo "modifying..."
+
+	sed -i 's@mailAttribute=".*@mailAttribute="uid"@' /etc/fusiondirectory/fusiondirectory.conf
+  fi
 fi
 
 if ldapsearch -x; then
@@ -49,21 +118,13 @@ else
 EOF
 fi
 
-echo "Downloading package lists...  This may take a while..."
-if apt-get -qq update; then
-        echo "Success!"
-else
-        echo "Failure to download package information.  Exiting..."
-        exit 1
-fi
-
 # We must install the required software.
 
 echo "First we install postfix and some prerequisite packages...  We set debians"
 echo "configuration to be noninteractive so we aren't asked questions twice when"
 echo "we reconfigure postfix later."
 DEBCONF_FRONTEND="noninteractive"
-if apt-get -y --allow-unauthenticated install subversion libjson-perl postfix postfix-ldap fusiondirectory-plugin-mail; then
+if apt-get -y --allow-unauthenticated install subversion libjson-perl postfix postfix-ldap; then
 	echo "Installation successful..."
 	unset DEBCONF_FRONTEND
 else
@@ -101,7 +162,7 @@ fi
 ## depend on gosa-si.
 
 echo "Installing Cyrus IMAP..."
-if apt-get -y install cyrus-imapd-2.2 sasl2-bin libsasl2-modules-ldap; then
+if apt-get -y install cyrus-imapd sasl2-bin libsasl2-modules-ldap; then
 # ...the following packages will be required if we enable Kerberos.
 #libsasl2-modules-gssapi-heimdal - GSSAPI plugin
 #libsasl2-modules-gssapi-mit
@@ -164,12 +225,12 @@ echo "Created and populated /etc/postfix/ldap-aliases.cf"
 # If the email address is configured for an account it will be printed to the
 # commandline, otherwise it will produce no output.  If there's an error with
 # connecting to LDAP there will be an error produced.
-# Also the cyrus-clients-2.2 package (which contains imtest) is useful.
+# Also the cyrus-clients package (which contains imtest) is useful.
 # eg. imtest -u user -a user -p 993 -s localhost
 # where -a = authentication username, -u = authorisation username,
 # -p = port, -s = connect using ssl 
 # If authentication works fine, but there are other problems cyradm can help
-# (found in the cyrus-admin-2.2 package).
+# (found in the cyrus-admin package).
 # cyradm --user <admin username> --server localhost
 
 # Configure Postfix to deliver mail to Cyrus via a unix socket.
@@ -295,38 +356,7 @@ sed -i 's@lmtp[ /t]*unix.*$@lmtp      unix  -       -       n       -       -   
 # sieve           cmd="timsieved" listen="sieve" prefork=0 maxchild=100
 # allows connections using any IP.  
 
-# Emable Cyrus mailMethod in fusiondirectory.conf
-if ! grep  'mailMethod=' /etc/fusiondirectory/fusiondirectory.conf; then
-	sed -i 's@<location.*'\
-'@&\
-              mailMethod="Cyrus"'\
-'@' /etc/fusiondirectory/fusiondirectory.conf
-	echo "Added a mailMethod entry to fusiondirectory.conf"
-else
-	echo "A mailMethod entry is already enabled in your fusiondirectory.conf"
-	echo "Or else FusionDirectory is non-local.  NOTE!!! - this means"
-        echo "you'll have to manually add mailMethod and mailAttribute to your"
-	echo "fusiondirectory.conf."
- 	echo "<read the above, then hit any key to continue...>"
-	read dummy
-fi
 
-# Configure mailAttribute in fusiondirectory.conf.
-# (This will be uid, but for virtual domain support mailAttribute should
-# become "mail"...  modify the if-statement below if virtual domain support
-# is needed).
-if ! grep 'mailAttribute=' /etc/fusiondirectory/fusiondirectory.conf; then
-	sed -i 's@<location.*'\
-'@&\
-              mailAttribute="uid"'\
-'@' /etc/fusiondirectory/fusiondirectory.conf
-	echo "Added a mailAttribute entry to fusiondirectory.conf"
-else
-	echo "A mailAttribute entry is already enabled in your fusiondirectory.conf."
-	echo "modifying..."
-
-	sed -i 's@mailAttribute=".*@mailAttribute="uid"@' /etc/fusiondirectory/fusiondirectory.conf
-fi
 # To debug Fusion Directory's interaction with email change 'debugLevel="0"'
 # to 'debugLevel="512"'.  This will cause debug info to be printed in the
 # Fusion Directory pages.
@@ -339,7 +369,11 @@ sed -i 's@^admins:.*$@& fd-admin@' /etc/imapd.conf
 
 # FIXME: Does sieve only need to listen on the local machine?
 # FIXME: Is there a way to only allow ssl connections to sieve?
-sed -i 's@listen="localhost:sieve"@listen="127.0.1.1:sieve"@' /etc/cyrus.conf
+if [ -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  sed -i 's@listen="localhost:sieve"@listen="127.0.1.1:sieve"@' /etc/cyrus.conf
+else
+  sed -i 's@listen="localhost:sieve"@listen=sieve@' /etc/cyrus.conf
+fi
 
 # Enable pops and imaps and disable imap and pop (in cyrus)
 # NOTE:: We can't actually disable imap until SOGo supports,
@@ -460,9 +494,9 @@ ldap_filter: uid=%u
 
 # These files allow saslauthd to verify the certs of anyone who connects.
 #FIXME: We should eventually create separate certs for all our services.
-ldap_tls_cacert_file: /etc/ssl/certs/ssl-cert-local-ca.pem
-ldap_tls_cert: /etc/ssl/certs/ssl-cert-snakeoil.pem
-ldap_tls_key: /etc/ssl/private/ssl-cert-snakeoil.key" > /etc/saslauthd.conf
+#ldap_tls_cacert_file: /etc/ssl/certs/ssl-cert-local-ca.pem
+#ldap_tls_cert: /etc/ssl/certs/ssl-cert-snakeoil.pem
+#ldap_tls_key: /etc/ssl/private/ssl-cert-snakeoil.key" > /etc/saslauthd.conf
 
 /etc/init.d/saslauthd restart
 
@@ -611,7 +645,11 @@ echo "Server identifier - "`hostname --fqdn`
 echo "Connect URL - {"`hostname --fqdn`":993/ssl/novalidate-cert}"
 echo "Admin user - fd-admin (if you used the default during setup)"
 echo "Password - <the password you entered during setup>"
-echo "Sieve connect URL - {127.0.1.1:4190/tls}"
+if [ -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Sieve connect URL - {127.0.1.1:4190/tls}"
+else
+  echo "Sieve connect URL - {"`hostname --fqdn`":4190/tls}"
+fi
 
 # FIXME: We must change the port above from 2000 to 4190 so this will work in
 #        Squeeze.  Test to make sure this works correctly.
@@ -620,12 +658,7 @@ echo "Sieve connect URL - {127.0.1.1:4190/tls}"
 # allocated for Cisco SCCP usage, according to the IANA registry[1].
 # FIXME: Why do we need to add a Postfix service into our Fusion Directory
 #        configuration?  Inform the user here.
-#
-# Starting with the version 4.38 of the Debian "netbase" package, the "sieve"
-# service will be moved from port 2000 to port 4190 in the /etc/services file. 
 
-echo "NOTE:: The 127.0.1.1 is required in the sieve URL because this script"
-echo "makes sieve listen only on this IP by default.  See cyrus.conf"
 
 # FIXME: BIG PROBLEM!!!  Need to set an ACL so that a user typing ldapsearch -x won't
 # get the admin password in plain text. From the IRC channel eg. :
