@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Script to install and configure Samba /w LDAP support for use with Fusion
 # Directory.
 # FIXME: We need an overview on what's going on in this script here.
