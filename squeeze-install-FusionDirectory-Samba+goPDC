@@ -311,6 +311,8 @@ smbpasswd -W
 # default), if you want to start from different numbers you can use "-g
 # <firstgid>" or "-u <firstuid>" as options to smbldap-populate.
 
+#FIXME: bugfix for typo in script?  Get rid of this when fixed
+ln -s /usr/bin/net /usr/bin/netx
 /usr/sbin/smbldap-populate -u 1100 -g 1100 -a admin
 
 ## Remove any cached samba data
