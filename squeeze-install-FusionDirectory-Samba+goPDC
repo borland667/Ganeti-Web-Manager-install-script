@@ -302,7 +302,9 @@ sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' 
 # the problem by putting my "post_create" scripts into the smb.conf file
 # - I used semicolons to put two scripts where one should go in /etc/samba/smb.conf .
 
-
+# We need a password to access LDAP
+echo "Please enter your LDAP admin password"
+smbpasswd -W
 
 # Initialise the LDAP database (what does this do exactly?)
 # **NOTE**: This makes the tool start adding uids and gids from 1000 (hardcoded
@@ -317,12 +319,6 @@ sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' 
 # rm  -R /var/log/samba/* # probably not required
 # rm /var/lib/samba/*.ldb # (?????? is this required)
 
-# Set the password (required after deleting the tdb files).
-echo ""
-echo "USER INPUT REQUIRED!!!"
-echo "We have deleted Samba's tdb cache...  reinitialising required your admin pw."
-smbpasswd -W
-# Once we restart Samba it will autocreate its SID in LDAP
 /etc/init.d/samba restart
 
 ## We can allow Fusion Directory to deal with groups /w spaces in them eg.
