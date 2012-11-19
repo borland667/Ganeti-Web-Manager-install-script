@@ -208,7 +208,7 @@ echo "Base DN extracted from LDAP (cn=config): "$LDAP_BASE_DN
 # in a lot of other config information (for LDAP, smbldap-tools etc...).  Notice we
 # use the LDAP connection details extracted above (ie. $LDAP_BASE_DN and 
 # $LDAP_ADMIN_DN)  
-if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://`hostname --fqdn`\
+if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://'`hostname --fqdn`'\
    domain logons = yes\
    preferred master = yes\
    ldap ssl = no\
