@@ -283,8 +283,8 @@ sed -i 's@slavePort="389@slavePort="636@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@usersdn="ou=Users@usersdn="ou=people@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@computersdn="ou=Computers@computersdn="ou=computers@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@groupsdn="ou=Groups@groupsdn="ou=groups@' /etc/smbldap-tools/smbldap.conf
-sed -i 's@slaveLDAP="dc=example,dc=com@slaveLDAP="`hostname --fqdn`@' /etc/smbldap-tools/smbldap.conf
-sed -i 's@masterLDAP="dc=example,dc=com@masterLDAP="`hostname --fqdn`@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@slaveLDAP="ldap.example.com@slaveLDAP="'`hostname --fqdn`'@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@masterLDAP="ldap.example.com@masterLDAP="'`hostname --fqdn`'@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@ldapSSL="0"@ldapSSL="1"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@ldapTLS="1"@ldapTLS="0"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@verify="require"@verify="none"@' /etc/smbldap-tools/smbldap.conf
@@ -309,7 +309,7 @@ sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' 
 # default), if you want to start from different numbers you can use "-g
 # <firstgid>" or "-u <firstuid>" as options to smbldap-populate.
 
-/usr/sbin/smbldap-populate -u 1100 -g 1100 -a fd-admin
+/usr/sbin/smbldap-populate -u 1100 -g 1100 -a admin
 
 ## Remove any cached samba data
 #rm /var/lib/samba/*.tdb
