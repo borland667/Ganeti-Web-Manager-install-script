@@ -204,6 +204,19 @@ echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
 LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '{ print $2 }'`
 echo "Base DN extracted from LDAP (cn=config): "$LDAP_BASE_DN
 
+#FIXME: Is this even required?
+echo '
+	dn: olcDatabase={1}hdb,cn=config
+	changetype: modify
+	add: olcAccess
+	olcAccess: {1}to attrs=loginShell,gecos
+	  by dn="'$LDAP_ADMIN_DN'" write
+	  by self write
+	  by * read
+' | ldapmodify -Y EXTERNAL -H ldapi:///
+
+
+sed -i 's@obey pam restrictions = yes@obey pam restrictions = yes@' /etc/samba/smb.conf
 # ...we then search for and replace the passdb backend config option, and also paste
 # in a lot of other config information (for LDAP, smbldap-tools etc...).  Notice we
 # use the LDAP connection details extracted above (ie. $LDAP_BASE_DN and 
@@ -224,6 +237,7 @@ if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://'`hostn
    passwd program = /usr/sbin/smbldap-passwd -u %u\
    passwd chat = *New*password* %n\\n *Retype*new*password* %n\\n *all*authentication*tokens*updated*\
    add user script = /usr/sbin/smbldap-useradd -m "%u"\
+   ldap delete dn - Yes\
    add machine script = /usr/sbin/smbldap-useradd -w "%u"\
    add group script = /usr/sbin/smbldap-groupadd -p "%g"\
    add user to group script = /usr/sbin/smbldap-groupmod -m "%u" "%g"\
@@ -277,7 +291,7 @@ sed -i 's@masterDN="cn=Manager,dc=example,dc=com@masterDN="'$LDAP_ADMIN_DN'@' /e
 sed -i 's@slaveDN="cn=Manager,dc=example,dc=com@slaveDN="'$LDAP_ADMIN_DN'@' /etc/smbldap-tools/smbldap_bind.conf
 sed -i 's@masterPw="secret@masterPw="'$LDAP_ADMIN_PW'@' /etc/smbldap-tools/smbldap_bind.conf
 sed -i 's@slavePw="secret@slavePw="'$LDAP_ADMIN_PW'@' /etc/smbldap-tools/smbldap_bind.conf
-sed -i 's@mailDomain="iallanis.info@mailDomain="'$DNS_DOMAIN'@' /etc/smbldap-tools/smbldap.conf
+sed -i 's@mailDomain="example.com@mailDomain="'$DNS_DOMAIN'@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@masterPort="389@masterPort="636@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@slavePort="389@slavePort="636@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@usersdn="ou=Users@usersdn="ou=people@' /etc/smbldap-tools/smbldap.conf
@@ -313,7 +327,8 @@ smbpasswd -W
 
 #FIXME: bugfix for typo in script?  Get rid of this when fixed
 ln -s /usr/bin/net /usr/bin/netx
-/usr/sbin/smbldap-populate -u 1100 -g 1100 -a admin
+
+/usr/sbin/smbldap-populate -u 1200 -g 1200 -a admin
 
 ## Remove any cached samba data
 #rm /var/lib/samba/*.tdb
