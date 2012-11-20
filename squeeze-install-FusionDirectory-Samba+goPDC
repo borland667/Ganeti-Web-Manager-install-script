@@ -72,13 +72,13 @@ apt-get -y --allow-unauthenticated install fusiondirectory-plugin-samba
 echo ""
 echo "1) When enabling LDAP service lookup select 'passwd', 'shadow' and 'group'."
 echo "2) The LDAP URI should be ldaps:// (and NOT ldapi:// which is the default"
-echo "3) When configuring libpam-ldap, answer 'No' to 'Allow LDAP admin account"
+echo "3) When configuring libpam-ldapd, answer 'No' to 'Allow LDAP admin account"
 echo "to behave like a local root'"
 echo "...for everything else default values should be OK."
 echo "<Hit enter to continue>"
 read my_dummy_value
 
-if apt-get -y install samba smbldap-tools libnss-ldapd libpam-ldap; then
+if apt-get -y install samba smbldap-tools libnss-ldapd libpam-ldapd; then
 	echo "Installation of samba, libnss-ldapd and"
 	echo "libpam-ldap successful..."
 else
@@ -328,7 +328,7 @@ smbpasswd -W
 #FIXME: bugfix for typo in script?  Get rid of this when fixed
 ln -s /usr/bin/net /usr/bin/netx
 
-/usr/sbin/smbldap-populate -u 1200 -g 1200 -a admin
+/usr/sbin/smbldap-populate -u 1200 -g 1200 -a fd-admin
 
 ## Remove any cached samba data
 #rm /var/lib/samba/*.tdb
