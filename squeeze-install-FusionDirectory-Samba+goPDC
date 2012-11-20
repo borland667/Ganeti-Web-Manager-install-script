@@ -216,7 +216,7 @@ echo '
 ' | ldapmodify -Y EXTERNAL -H ldapi:///
 
 
-sed -i 's@obey pam restrictions = yes@obey pam restrictions = yes@' /etc/samba/smb.conf
+sed -i 's@obey pam restrictions = yes@obey pam restrictions = no@' /etc/samba/smb.conf
 # ...we then search for and replace the passdb backend config option, and also paste
 # in a lot of other config information (for LDAP, smbldap-tools etc...).  Notice we
 # use the LDAP connection details extracted above (ie. $LDAP_BASE_DN and 
