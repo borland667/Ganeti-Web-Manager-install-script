@@ -237,7 +237,7 @@ if sed -i 's@^[ \t]*passdb backend.*@   passdb backend = ldapsam:ldaps://'`hostn
    passwd program = /usr/sbin/smbldap-passwd -u %u\
    passwd chat = *New*password* %n\\n *Retype*new*password* %n\\n *all*authentication*tokens*updated*\
    add user script = /usr/sbin/smbldap-useradd -m "%u"\
-   ldap delete dn - Yes\
+   ldap delete dn = Yes\
    add machine script = /usr/sbin/smbldap-useradd -w "%u"\
    add group script = /usr/sbin/smbldap-groupadd -p "%g"\
    add user to group script = /usr/sbin/smbldap-groupmod -m "%u" "%g"\
