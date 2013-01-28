@@ -15,7 +15,7 @@ if [ ! -d /home/sogo ]; then
 fi
 
 apt-get update
-apt-get install -y --allow-unauthenticated samba4
+apt-get install -y --allow-unauthenticated samba4 samba 
 
 apt-get install -y --allow-unauthenticated openchangeserver sogo-openchange openchangeproxy openchange-ocsmanager openchange-rpcproxy
 
@@ -31,7 +31,7 @@ echo "Password must be at least 7 chars containing both a number, and mixed case
 echo "and/or non-alpha chars:"
 read domain_pass
 
-/usr/share/samba/setup/provision --realm=`hostname --domain` --domain=$domain_name --adminpass="$domain_pass" --server-role='domain controller'
+samba-tool domain provision --realm=`hostname --domain` --domain=$domain_name --adminpass="$domain_pass" --server-role='domain controller'
 
 # Make changes required by OpenChange to Samba4 config.
 sed -i 's@\[global\]@\[global\]\
