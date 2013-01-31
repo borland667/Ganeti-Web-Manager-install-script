@@ -31,9 +31,16 @@ echo "Password must be at least 7 chars containing both a number, and mixed case
 echo "and/or non-alpha chars:"
 read domain_pass
 
+# FIXME: The instructions aren't clear, but apparently the realm(or perhaps the
+#        domain?) must only be 15 characters or less.  Why?  Not clear either, but
+#        perhaps it prevents domain relationships(???)
+#        Documentation I've found elsewhere says this applies to the domain.
 samba-tool domain provision --realm=`hostname --domain` --domain=$domain_name --adminpass="$domain_pass" --server-role='domain controller'
 
-# Make changes required by OpenChange to Samba4 config.
+# Make changes required by OpenChange to the newly created Samba4 config.
+# FIXME: do want to use Samba4 as a DNS server? Add "dnsserver" in endpoint servers.
+#        If not do we might enable DLZ (ie. dynamically loadable zones) to bind9.
+#        See documentation for many other steps.
 sed -i 's@\[global\]@\[global\]\
 \
 	\#\#\# Configuration required by OpenChange server \#\#\#\
@@ -46,41 +53,107 @@ sed -i 's@\[global\]@\[global\]\
 # Samba4 is started as root, so link SOGo config to root home directory.
 ln -s ~sogo/GNUstep /root/
 
-echo ""
-echo "*** You can safely ignore the error in Step 1 of the following process ***"
-# The error that can be ignored during openchange_provision is the following :
-# “ERROR: no subClassOf 'serviceAdministrationPoint' for 'rRASAdministrationConnectionPoint'”
 openchange_provision
+openchange_provision --openchangedb
 
 /etc/init.d/samba4 start
 /etc/init.d/openchange-ocsmanager start
 
-# Enable required apache modules, and default-ssl site.
-a2enmod proxy proxy_http wsgi ssl headers rewrite
-a2ensite default-ssl
+# By default an Administrator account is created.  To create other new users :
+# samba-tool user add JohnDoe
 
-update-rc.d apache2 defaults
-/etc/init.d/apache2 restart
+# ...and in OpenChange...
+openchange_newuser --create Administrator
+# openchange_newuser --create JohnDoe
+
+# mapiprofile --create -P testing -S -I 192.168.1.109 --domain=STRATEGICIT --realm=strategicit.homelinux.net --username=JohnDoe --password='Mypassword123'
+
+# mapiprofile --list
+
+# mapiprofile --dump -P testing
+
+# Testing:
+# Shut down samba, then restart with the following commandline :
+# samba -d3 -i -M single
+# If OpenChange started correctly something similar to the following should
+# be visible in the output :
+#
+# 42.    DCERPC endpoint server 'epmapper' registered
+# [...]
+# 57.    DCERPC endpoint server 'dnsserver' registered
+# 58.    DCERPC endpoint server 'exchange_emsmdb' registered
+# 59.    DCERPC endpoint server 'exchange_nsp' registered
+# 60.    DCERPC endpoint server 'exchange_ds_rfr' registered
+# 61.    DCERPC endpoint server 'mapiproxy' registered
+# [...]
+# 66.    MAPIPROXY server 'exchange_ds_rfr' registered
+# 67.    MAPIPROXY server 'exchange_nsp' registered
+# 68.    MAPIPROXY server 'exchange_emsmdb' registered
+# 69.    MAPIPROXY server mode enabled
+# 70.    MAPIPROXY proxy mode disabled
+# 71.    mapiproxy_server_load 'exchange_nsp' (OpenChange NSPI server)
+# 72.    dcesrv_exchange_nsp_init
+# 73.    mapiproxy_server_load 'exchange_emsmdb' (OpenChange EMSMDB server)
+# 74.    mapiproxy_server_load 'exchange_ds_rfr' (OpenChange RFR server)
+
+########################################################
+# To further test :
+# Install the openchangeclient package, and follow the instructions on
+# the openchange website.
+
+################################################
+# By default the Administrator account is setup, we'll just have to extend it in OpenChange. However we need to create other users. To perform this task, use the following command:
+
+#$ sudo PYTHONPATH=$PYTHONPATH /usr/local/samba/bin/samba-tool user add JohnDoe 'openchange2!'
+#User 'JohnDoe' created successfully
 
 
-sudo -u sogo defaults write sogod SOGoUserSources '(
-{
-CNFieldName = displayName;
-IDFieldName = cn;
-UIDFieldName = sAMAccountName;
-IMAPLoginFileName = sAMAccountName;
-baseDN = "cn=Users,dc=strategicit,dc=homelinux,dc=net";
-bindDN = "cn=Administrator,cn=Users,dc=strategicit,dc=homelinux,dc=net";
-bindFields = (
-sAMAccountName
-);
-bindPassword = "pa##word";
-canAuthenticate = YES;
-displayName = "Shared Addresses";
-hostname = "127.0.0.1";
-id = samba;
-isAddressBook = YES;
-port = 389;
-}
-)'
+# Setting up mapiprofile
+#
+# Creating the profile
+# 
+# mapiprofile is a command line tool designed to provide administrative support for OpenChange MAPI profiles.
+# 
+# A profile in this context represents a single user's connection to a server. It can be thought of as a user's account information stored on the client side. Most OpenChange utilities make use of the profile information stored in the local profile database, often by referring to the name of the profile.
+# 
+# We are now creating a MAPI profile for JohnDoe user. mapiprofile requires several arguments to be set up to start creating a profile:
+# Command 	Description
+# --create 	MAPI profile creation operation
+# -P testing 	Create a profile named testing
+# -S 	Make this profile the default one
+# -I 	Specify openchange server IP address
+# --domain 	Specify openchange domain
+# --realm 	Specify openchange realm
+# --username 	Specify OpenChange username
+# --password 	Specify OpenChange user's password
+# 
+# $ /usr/local/samba/bin/mapiprofile --create -P testing -S   \
+# -I 192.168.102.48 --domain=OC --realm=oc.local              \
+# --username=JohnDoe --password='openchange2!' 
+# Profile default completed and added to database /home/openchange/.openchange/profiles.ldb
+# Profile default is now set the default one
+# 
+# The server side output matching the command above is available here.
+# Listing profiles
+# 
+# The profile is now available within mapiprofile's list:
+# 
+# $ /usr/local/samba/bin/mapiprofile --list
+# We have 1 profile in the database:
+#   Profile = testing [default]
+# 
+# Dumping profiles
+# 
+# Profile information can be dumped using the command below:
+# 
+# $ /usr/local/samba/bin/mapiprofile --dump -P testing
+# Profile: testing
+# exchange server == exchange 2000
+# encryption      == no
+# username        == JohnDoe
+# password        == openchange2!
+# mailbox         == /o=First Organization/ou=First Administrative Group/cn=Recipients/cn=JohnDoe
+# workstation     == precog
+# domain          == OC
+# server          == 192.168.102.48
 
