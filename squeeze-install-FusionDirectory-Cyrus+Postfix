@@ -45,7 +45,7 @@ if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
   read LDAP_ADMIN_PW
   echo ""
   echo "On your FusionDirectory setting run the following:"
-  echo "apt-get install fusiondirectory-plugin-mail"
+  echo "apt-get install fusiondirectory-plugin-mail fusiondirectory-plugin-systems"
   echo "Now edit /etc/fusiondirectory/fusiondirectory.conf on your FD server."
   echo "You must add also the following two settings to your 'location':"
   echo "mailMethod=\"Cyrus\""
@@ -61,7 +61,7 @@ else
   LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | \
     awk -F'"' '{print $2 }'`
   echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
-  apt-get -y install fusiondirectory-plugin-main
+  apt-get -y install fusiondirectory-plugin-main fusiondirectory-plugin-systems
 
   # Emable Cyrus mailMethod in fusiondirectory.conf
   if ! grep  'mailMethod=' /etc/fusiondirectory/fusiondirectory.conf; then
