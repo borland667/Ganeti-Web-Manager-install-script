@@ -73,6 +73,9 @@ cat >> /etc/apt/sources.list <<-EOF
 	deb http://inverse.ca/debian wheezy wheezy
 EOF
 
+# Install keys for SOGo repository
+apt-key adv --keyserver keys.gnupg.net --recv-key 0x810273C4
+
 # FIXME: I THINK installing all the postgresql-9.1 stuff first should stop
 #        mysql-server being installed...  make sure this is the case and
 #        remove this note.
