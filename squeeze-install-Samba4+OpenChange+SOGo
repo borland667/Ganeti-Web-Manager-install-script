@@ -9,7 +9,7 @@ echo "Feel free to expand this script beyond this scope."
 echo "Ctrl-C to exit, or <enter> to continue :"
 read dummy_val
 
-if [ ! -d /home/sogo ]; then
+if [ ! -d /var/lib/sogo ]; then
   echo "SOGo is not installed...  please run the SOGo installer script."
   exit 1
 fi
@@ -31,16 +31,35 @@ echo "Password must be at least 7 chars containing both a number, and mixed case
 echo "and/or non-alpha chars:"
 read domain_pass
 
+# Provision our AD domain (using Bind as our backend)
 # FIXME: The instructions aren't clear, but apparently the realm(or perhaps the
 #        domain?) must only be 15 characters or less.  Why?  Not clear either, but
 #        perhaps it prevents domain relationships(???)
 #        Documentation I've found elsewhere says this applies to the domain.
-samba-tool domain provision --realm=`hostname --domain` --domain=$domain_name --adminpass="$domain_pass" --server-role='domain controller'
+samba-tool domain provision --realm=`hostname --domain` --domain=$domain_name --adminpass="$domain_pass" --server-role='domain controller' --dns-backend=BIND9_DLZ
+
+chown -R root:bind /var/lib/samba/private/
+chown bind:bind /var/lib/samba/private/dns
+chgrp bind /var/lib/samba/private/dns.keytab
+chmod g+x /var/lib/samba/private/dns.keytab
+chmod 755 /var/lib/samba/private/dns
+
+cat >> /etc/bind/named.conf <<-EOF
+	include "/var/lib/samba/private/named.conf";
+EOF
+
+cat >> /etc/bind/named.conf.options <<-EOF
+	tkey-gssapi-keytab "/var/lib/samba/private/dns.keytab";
+EOF
+
+# NOTE: Active Directory relies heavily on special DNS entries for detecting
+#       network resources.  As we're using Bind9 is our DNS server we need
+#       some extra configuration to allow Samba4 to communicate dynamic DNS
+#       info.
 
 # Make changes required by OpenChange to the newly created Samba4 config.
-# FIXME: do want to use Samba4 as a DNS server? Add "dnsserver" in endpoint servers.
-#        If not do we might enable DLZ (ie. dynamically loadable zones) to bind9.
-#        See documentation for many other steps.
+# If we ever decide to use Samba4 as a DNS server we'll need to enable dlz
+# below.
 sed -i 's@\[global\]@\[global\]\
 \
 	\#\#\# Configuration required by OpenChange server \#\#\#\
@@ -49,6 +68,8 @@ sed -i 's@\[global\]@\[global\]\
 	dcerpc_mapiproxy:interfaces = exchange_emsmdb, exchange_nsp, exchange_ds_rfr\
 	\#\#\# Configuration required by OpenChange server \#\#\#\
 @' /etc/samba/smb.conf
+
+
 
 # Samba4 is started as root, so link SOGo config to root home directory.
 ln -s ~sogo/GNUstep /root/
@@ -66,6 +87,8 @@ openchange_provision --openchangedb
 openchange_newuser --create Administrator
 # openchange_newuser --create JohnDoe
 
+# FIXME: Is mapiprofile actually required, or is it only a testing tool?
+# apt-get install mapiprofileclient
 # mapiprofile --create -P testing -S -I 192.168.1.109 --domain=STRATEGICIT --realm=strategicit.homelinux.net --username=JohnDoe --password='Mypassword123'
 
 # mapiprofile --list
