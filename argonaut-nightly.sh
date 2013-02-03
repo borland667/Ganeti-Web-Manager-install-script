@@ -1,5 +1,6 @@
 #!/bin/bash
-argonaut_pkg_list="libpoe-component-schedule-perl libpoe-component-server-jsonrpc-perl argonaut-fuse argonaut-fai-client argonaut-fai-mirror argonaut-fai-nfsroot argonaut-common argonaut-server argonaut-ldap2zone"
+argonaut_pkg_list="libpoe-component-schedule-perl libpoe-component-server-jsonrpc-perl argonaut-fuse argonaut-fai-mirror argonaut-fai-nfsroot argonaut-common argonaut-server argonaut-ldap2zone"
+# FIXME: removed argonaut-fai-client above.
 zulutime=`date -u +%y%m%d%H%M`
 repo_dir="/var/www/argonaut-beta"
 repo_origin="Fusion Directory"
