@@ -99,9 +99,9 @@ sed -i 's@START_SERVER=0@START_SERVER=1@' /etc/default/argonaut-server
 sed -i 's@START_CLIENT=0@START_CLIENT=1@' /etc/default/argonaut-client
 
 echo ""
-echo "You must now add an Argonaut server object to LDAP."
-echo "Also, you must enable the Argonaut Client functionality in the"
-echo "tab of this name"
+echo "You must :"
+echo "  * add an Argonaut server object to LDAP."
+echo "  * enable the Argonaut Client functionality (in the tab of this name"
 #FIXME: Make better wording, and understand better.
 echo "< WHEN FINISHED hit enter to continue... >"
 read my_dummy_value
