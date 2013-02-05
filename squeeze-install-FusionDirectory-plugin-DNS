@@ -34,18 +34,7 @@ apt-get -y --allow-unauthenticated install bind9 dpkg-dev libldap2-dev ldap-util
 
 # We need to configure slapd to include this dnszone schema.  We've also
 # added a couple of (optional) indexes here to boost performance.
-# FIXME: Once ldifs are bundled with Fusion Directory this can go...
-if [ -f /etc/ldap/schema/fusiondirectory/dnszone.ldif ]; then
-	echo "Adding schemas to LDAP tree..."
-else
-	echo "Hopefully ldif versions of schemas will be packaged soon,"
-	echo "but until this happens you will need to create these by hand."
-	echo "You could use slaptest, or the schema2bcldif.sh script."
-	echo "Please create an ldif version of dnszone.schemas in"
-	echo "/etc/ldap/schema/fusiondirectory and hit <enter> to continue..."
-	read dummy
-fi
-ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/dnszone.ldif
+fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/dnszone.schema
 
 cat > /tmp/fix.ldif <<-EOF
 	dn: olcDatabase={1}hdb,cn=config
