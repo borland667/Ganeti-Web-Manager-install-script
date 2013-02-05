@@ -52,6 +52,8 @@ cat >> /etc/bind/named.conf.options <<-EOF
 	tkey-gssapi-keytab "/var/lib/samba/private/dns.keytab";
 EOF
 
+/etc/init.d/bind9 restart
+
 # NOTE: Active Directory relies heavily on special DNS entries for detecting
 #       network resources.  As we're using Bind9 is our DNS server we need
 #       some extra configuration to allow Samba4 to communicate dynamic DNS
