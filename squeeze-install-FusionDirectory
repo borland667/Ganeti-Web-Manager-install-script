@@ -66,7 +66,7 @@ do
   echo ""
   echo "Which repository will you be using? :"
   echo "1) The Fusion Directory Squeeze repository"
-  echo "2) The Fusion Directory beta repository"
+  echo "2) The Fusion Directory development repository"
 #  echo "3) ...a third choice..."
   echo ""
   echo "...enter the number of your choice :"
@@ -80,7 +80,7 @@ do
 
   if [ $REPO_CHOICE -eq 2 ]; then
     if [ ! -f /etc/apt/sources.list.d/gosa.list ]; then
-      echo "deb http://repos.fusiondirectory.org/fusiondirectory-beta/ ./" >> /etc/apt/sources.list
+      echo "deb http://repos.fusiondirectory.org/fusiondirectory-develop/ squeeze main" >> /etc/apt/sources.list
     fi
   fi
   if [ $REPO_CHOICE -eq 1 ]; then
