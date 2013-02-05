@@ -60,6 +60,7 @@ fi
 #| that can be easily edited.
 #'------------------------------------------------------------------------------
 
+wget -O - http://repos.fusiondirectory.org/gpg/fusiondirectory_public.key | apt-key add -
 REPO_CHOICE=0
 while [ $REPO_CHOICE -lt 1 ] || [ $REPO_CHOICE -gt 3 ]
 do
