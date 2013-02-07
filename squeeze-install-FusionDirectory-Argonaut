@@ -67,7 +67,7 @@ else
 fi 
 
 # Add LDAP schemas to our directory
-fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/asterisk-fd.schema  /etc/ldap/schema/fusiondirectory/systems-fd-conf.schema /etc/ldap/schema/fusiondirectory/service-fd.schema /etc/ldap/schema/fusiondirectory/argonaut-fd.schema
+fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/asterisk-fd.schema  /etc/ldap/schema/fusiondirectory/systems-fd.schema /etc/ldap/schema/fusiondirectory/systems-fd-conf.schema /etc/ldap/schema/fusiondirectory/service-fd.schema /etc/ldap/schema/fusiondirectory/argonaut-fd.schema
 
 # We raid Fusion Directory's config file, and examine our network config for
 # values we need to configure Argonaut :
