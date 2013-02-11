@@ -31,22 +31,8 @@ else
 	exit 1
 fi
 
-# We need to configure our LDAP server to include our DHCP schema.  Some other
-# (optional) config changes have also been included here - several indexes are
-# created to improve performance.
-
-# FIXME: Once ldifs are bundled with Fusion Directory this can go...
-if [ -f /etc/ldap/schema/fusiondirectory/dhcp.ldif ]; then
-	echo "Adding schemas to LDAP tree..."
-else
-	echo "Hopefully ldif versions of schemas will be packaged soon,"
-	echo "but until this happens you will need to create these by hand."
-	echo "You could use slaptest, or the schema2bcldif.sh script."
-	echo "Please create ldif versions of all schemas in"
-	echo "/etc/ldap/schema/fusiondirectory and hit <enter> to continue..."
-	read dummy
-fi
-ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/dhcp.ldif
+# Some (optional) config changes have also been included here - several indexes
+# are created to improve performance.
 
 cat > /tmp/fix.ldif <<-EOF
 	dn: olcDatabase={1}hdb,cn=config
@@ -85,8 +71,6 @@ else
 echo "DHCP plugin already configured in fusiondirectory.conf"	
 fi	
 fi
-
-
 
 
 # Edit /etc/dhcp3/dhcpd.conf and configure dhcpd to get its config from LDAP.
