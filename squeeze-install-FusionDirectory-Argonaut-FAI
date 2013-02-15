@@ -37,8 +37,8 @@ else
 	exit 1
 fi
 
-# We need to add the argonaut schema to our LDAP directory
-ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/argonaut.ldif
+# We need to add the FAI schema to our LDAP directory
+fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/fai.schema
 
 apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai argonaut-fai-client argonaut-client-fai
 
