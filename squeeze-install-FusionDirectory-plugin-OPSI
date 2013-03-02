@@ -30,19 +30,11 @@ if [ ! -f /etc/dhcp/dhcpd.conf ]; then
   exit 1
 fi
 # squeeze-install-FusionDirectory-plugin-DNS
-if [ ! -f /etc/default/ldap2zone ]; then
+if [ ! -f /etc/bind/rndc.key ]; then
   echo "Run the squeeze-install-FusionDirectory-plugin-DNS script before this one.  Bind9"
   echo "must be installed and configured before we can continue..."
   exit 1
 fi
-
-## FIXME: Benoit tells me FAI is NOT required...  test, then remove this.
-## squeeze-install-FusionDirectory-plugin-FAI
-#if [ ! -f /etc/fai/make-fai-nfsroot.conf ]; then
-#  echo "Run the squeeze-install-FusionDirectory-plugin-FAI script before this one.  FAI"
-#  echo "must be installed and configured before we can continue..."
-#  exit 1
-#fi
 
 # squeeze-install-FusionDirectory-Samba+goPDC
 if [ ! -f /etc/samba/smb.conf ]; then
