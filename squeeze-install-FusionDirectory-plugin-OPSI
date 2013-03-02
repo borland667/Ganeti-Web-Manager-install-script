@@ -61,21 +61,10 @@ if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
 	exit 1
 fi
 
-# FIXME: This is probably no longer required with Debian Squeeze and openjdk-6-jre
-## ...and non-free repos enabled.
-#grep -q "non-free" /etc/apt/sources.list
-#if [ "$?" != 0 ]; then
-#	echo ""
-#        echo "ERROR: You don't have non-free repositories enabled in"
-#	echo "/etc/apt/sources.list.  You must update this before you can"
-#	echo "continue as OPSI requires Sun's Java JRE.  Exiting..."
-#	exit 1
-#fi
-
 # Add the Squeeze OPSI repo
 grep -q "http://download.opensuse.org/repositories/home:/uibmz:/opsi:/opsi40/Debian_6.0 ./" /etc/apt/sources.list
 if [ "$?" != 0 ]; then
-        echo "http://download.opensuse.org/repositories/home:/uibmz:/opsi:/opsi40/Debian_6.0 ./" >> /etc/apt/sources.list
+        echo "deb http://download.opensuse.org/repositories/home:/uibmz:/opsi:/opsi40/Debian_6.0 ./" >> /etc/apt/sources.list
 fi
 
 # Add key for Squeeze OPSI repo
@@ -83,10 +72,11 @@ wget -O - http://download.opensuse.org/repositories/home:/uibmz:/opsi:/opsi40/De
 
 apt-get update
 apt-get install -y wget lsof host python-mechanize p7zip-full cabextract atftpd openbsd-inetd
-apt-get install -y smbclient smbfs
+apt-get install -y smbclient cifs-utils
 
 # FIXME: Hopefully the OpenJDK works...  if not revert to the non-free Sun JDK
 if apt-get install -y openjdk-6-jre; then
+  test
 else
   echo "Didn't successfully install "
   exit 1
@@ -96,39 +86,10 @@ fi
 # make this change interactively if required.
 update-alternatives --set java /usr/lib/jvm/java-6-openjdk/jre/bin/java
 
-################# Probably not required #########################################
-# FIXME: Remove this after we've established this is not needed.
-#aptitude -y --allow-untrusted libio-socket-ssl-perl 
-#
-#echo "Checking if prerequisite packages are already present :"
-#if apt-get -qq install libgosa-perl; then
-#  echo "Installed libgosa-perl from repositories..."
-#else
-#  cd /usr/src
-#  svn co https://oss.gonicus.de/repositories/goto/trunk/gosa-perl gosa-perl
-#  cd /usr/src/gosa-perl
-#  dpkg-buildpackage -b
-#  cd /usr/src
-#  dpkg -i libgosa-perl_*.deb
-#fi
-#
-#if apt-get -qq install goto-common; then
-#  echo "Installed goto-common from repositories..."
-#else
-#  cd /usr/src
-#  svn co https://oss.gonicus.de/repositories/goto/trunk/goto-common goto-common
-#  cd /usr/src/goto-common
-#  dpkg-buildpackage -b
-#  cd /usr/src
-#  dpkg -i goto-common_*.deb
-#fi
-###################################################################################
-
-
-
 # This Argonaut package needs to be installed... 
-if apt-get -y --allow-unauthenticated install fusiondirectory-plugin-opsi argonaut-fuse-opsi; then
+if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse-opsi; then
   echo "Installed Argonaut and FD OPSI modules from repository..."
+  fusiondirectory-insert-schema -i opsi-fd.schema
 else
   echo "Can't find Argonaut/FusionDirectory OPSI module/s in the repository/s..."
   # At the moment of writing up-to-date debs aren't available
@@ -179,17 +140,6 @@ read dummyvar
 
 # Unfortunately the Samba docs say it's no longer possible for Samba to support
 # multiple password backends, so I can't simply have a local password.
- 
-OPSIADMIN_PW="aicham"
-sed -i 's@^admin=@admin=opsiadmin@' /etc/argonaut/argonaut-fuse.conf
-# Only replace the SECOND occurrence of "password=" in the config, because the first is for FAI
-sed -i '/^password=/{:1 n;/^password=/{s/^password=[\t]*$/password='$OPSIADMIN_PW'/;:2 n;$!b2};b1}' /etc/argonaut/argonaut-fuse.conf
-sed -i 's@^server=@server='`hostname --fqdn`'@' /etc/argonaut/argonaut-fuse.conf
-sed -i 's@^lang=@lang=en@' /etc/argonaut/argonaut-fuse.conf
-
-# Check cfg_defaults in the /usr/sbin/gosa-si-server script to get an idea of
-# other configuration options available in server.conf. This is not documented.
-
 
 # We COULD enable ArpHandler in /etc/gosa-si/server.conf .  The ArpHandler captures
 # network traffic and automatically imports network devices into LDAP/GOsa.
@@ -212,23 +162,23 @@ echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.co
 sed -i 's@^dn=[\t]*$@dn='$LDAP_ADMIN_DN'@' /etc/argonaut/argonaut-fuse.conf
 sed -i '0,/password/s@^password[\t]*$=@password='$LDAP_ADMIN_PW'@' /etc/argonaut/argonaut-fuse.conf
 
-## These packages are replaced by fts and opsi-depot-support in Fusion Directory, and
-## I've made a note here in case anyone was wondering about it :
-#apt-get install opsi-atftpd opsi-depotserver
+apt-get --allow-unauthenticated -y install argonaut-server-module-opsi
 
-if apt-get --allow-unauthenticated -y install opsi-depot-support; then
-  echo "Installed opsi-depot-support from repositories..."
-else
-  aptitude --allow-untrusted -y install apg opsiconfd opsi-linux-bootimage opsi-utils
-  cd /usr/src
-  svn co https://oss.gonicus.de/repositories/goto/trunk/opsi-depot-support opsi-depot-support
-  cd /usr/src/opsi-depot-support
-  dpkg-buildpackage -b
-  cd /usr/src
-  dpkg -i opsi-depot-support_*.deb
-fi
-
-aptitude install -y --allow-untrusted opsi-configed fusiondirectory-plugin-opsi
+### These packages are replaced by fts and opsi-depot-support in Fusion Directory, and
+### I've made a note here in case anyone was wondering about it :
+##apt-get install opsi-atftpd opsi-depotserver
+#
+#if apt-get --allow-unauthenticated -y install opsi-depot-support; then
+#  echo "Installed opsi-depot-support from repositories..."
+#else
+#  aptitude --allow-untrusted -y install apg opsiconfd opsi-linux-bootimage opsi-utils
+#  cd /usr/src
+#  svn co https://oss.gonicus.de/repositories/goto/trunk/opsi-depot-support opsi-depot-support
+#  cd /usr/src/opsi-depot-support
+#  dpkg-buildpackage -b
+#  cd /usr/src
+#  dpkg -i opsi-depot-support_*.deb
+#fi
 
 ## FIXME: Is this information obsolete?
 # During the opsiserver installation you have to allow the patching of the
@@ -247,7 +197,9 @@ opsi-admin -d task setPcpatchPassword
 cd /home/opsiproducts
 echo ""
 echo "Downloading OPSI products.  Please wait..."
-wget -r -l1 -nd -nc -A '*.opsi' http://download.uib.de/opsi3.4/produkte/essential
+apt-get install wget
+wget -r -l1 -nd -nc -A '*.opsi' http://download.uib.de/opsi4.0/products/netboot
+#wget -r -l1 -nd -nc -A '*.opsi' http://download.uib.de/opsi3.4/produkte/essential
 # More products can be downloaded from http://download.uib.de similarly
 
 #FIXME: This was the old way of doing things...  then I follow with the new way.
@@ -381,7 +333,7 @@ EOF
 #        /usr/share/doc/gosa-si-server-opsi/contrib/ , so we must download
 #        it from scratch to /etc/opsi/backendManger.d/ rather than simply
 #        copying it.
-apt-get install wget
+
 cd /etc/opsi/backendManager.d
 wget https://oss.gonicus.de/repositories/gosa/trunk/gosa-si/contrib/90_gosa.conf
 
