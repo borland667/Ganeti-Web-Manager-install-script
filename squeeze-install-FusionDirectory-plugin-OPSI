@@ -89,7 +89,8 @@ update-alternatives --set java /usr/lib/jvm/java-6-openjdk/jre/bin/java
 # This Argonaut package needs to be installed... 
 if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse-opsi; then
   echo "Installed Argonaut and FD OPSI modules from repository..."
-  fusiondirectory-insert-schema -i opsi-fd.schema
+  fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd.schema
+  fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd-conf.schema
 else
   echo "Can't find Argonaut/FusionDirectory OPSI module/s in the repository/s..."
   # At the moment of writing up-to-date debs aren't available
@@ -158,6 +159,8 @@ LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk 
 echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
 LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
 echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+# FIXME: argonaut-fuse.conf doesn't exist anymore.  This is configured in FD?  If so
+#        write instructions (perhaps using the above info?)
 # ...then configure our Argonaut-fuse server to bind to LDAP as admin.
 sed -i 's@^dn=[\t]*$@dn='$LDAP_ADMIN_DN'@' /etc/argonaut/argonaut-fuse.conf
 sed -i '0,/password/s@^password[\t]*$=@password='$LDAP_ADMIN_PW'@' /etc/argonaut/argonaut-fuse.conf
