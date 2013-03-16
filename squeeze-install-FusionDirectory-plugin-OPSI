@@ -71,7 +71,8 @@ fi
 wget -O - http://download.opensuse.org/repositories/home:/uibmz:/opsi:/opsi40/Debian_6.0/Release.key | apt-key add -
 
 apt-get update
-apt-get install -y wget lsof host python-mechanize p7zip-full cabextract atftpd openbsd-inetd
+
+apt-get install -y wget lsof host python-mechanize p7zip-full cabextract tftpd openbsd-inetd
 apt-get install -y smbclient cifs-utils
 
 # FIXME: Hopefully the OpenJDK works...  if not revert to the non-free Sun JDK
@@ -87,7 +88,7 @@ fi
 update-alternatives --set java /usr/lib/jvm/java-6-openjdk/jre/bin/java
 
 # This Argonaut package needs to be installed... 
-if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse-opsi; then
+if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonau-fuse argonaut-fuse-opsi opsi-depotserver-expert; then
   echo "Installed Argonaut and FD OPSI modules from repository..."
   fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd.schema
   fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd-conf.schema
@@ -97,6 +98,18 @@ else
   echo "Use the argonaut_nightly.sh build script to make it..."
   exit 1
 fi
+
+# FIXME: I got an error setting rights if this directory didn't exist.  Do I need to create it manually?
+mkdir /home/opsiproducts
+
+apt-get -y install mysql-server
+opsi-setup --configure-mysql
+opsi-setup --init-current-config
+opsi-setup --set-rights
+/etc/init.d/opsiconfd restart
+/etc/init.d/opsipxeconfd restart
+
+opsi-setup --auto-configure-samba
 
 # OPSI administrators must belong to the group "opsiadmin" and
 # users which can make opsi packages must belong to "pcpatch"
@@ -149,9 +162,6 @@ read dummyvar
 #printf "%s\n" '/\[ArpHandler\]/' '/enabled = false/s/false/true' w | ex -s /etc/gosa-si/server.conf
 
 apt-get -qq install libproc-daemon-perl syslinux
-# FIXME: Does this need to happen (ie. is tftpd accidentally installed)
-apt-get remove tftpd
-update-inetd --remove tftpd
 
 # We get our admin dn and password from fusiondirectory.conf as these are required in the
 # [LDAP] section - fts must use them to connect to our LDAP directory.
@@ -167,30 +177,6 @@ sed -i '0,/password/s@^password[\t]*$=@password='$LDAP_ADMIN_PW'@' /etc/argonaut
 
 apt-get --allow-unauthenticated -y install argonaut-server-module-opsi
 
-### These packages are replaced by fts and opsi-depot-support in Fusion Directory, and
-### I've made a note here in case anyone was wondering about it :
-##apt-get install opsi-atftpd opsi-depotserver
-#
-#if apt-get --allow-unauthenticated -y install opsi-depot-support; then
-#  echo "Installed opsi-depot-support from repositories..."
-#else
-#  aptitude --allow-untrusted -y install apg opsiconfd opsi-linux-bootimage opsi-utils
-#  cd /usr/src
-#  svn co https://oss.gonicus.de/repositories/goto/trunk/opsi-depot-support opsi-depot-support
-#  cd /usr/src/opsi-depot-support
-#  dpkg-buildpackage -b
-#  cd /usr/src
-#  dpkg -i opsi-depot-support_*.deb
-#fi
-
-## FIXME: Is this information obsolete?
-# During the opsiserver installation you have to allow the patching of the
-# files 'dhcpd.conf' and 'smb.conf'. Answer the question with 'yes'. Also you
-# will be asked for a password for the user 'pcpatch'. Set a new password.
-
-# FIXME: Does the user already get asked for the pcpatch pass.  If so delete :
-# The following command changes the "pcpatch" user password.  This account
-# is used to control PCs...
 echo ""
 echo "The pcpatch user is used for various management tasks in OPSI."
 echo "Please enter a password for this account."
@@ -210,30 +196,6 @@ wget -r -l1 -nd -nc -A '*.opsi' http://download.uib.de/opsi4.0/products/netboot
 #chown opsiconfd *.opsi
 #for paket in *.opsi; do echo $paket; opsi-package-manager -i -f -q -k $paket; done
 opsi-package-manager -i *.opsi
-
-## Samba configuration
-cat >> /etc/samba/smb.conf <<-EOF
-	[opt_pcbin]
-	 available = yes
-	 comment = opsi depot share
-	 path = /opt/pcbin
-	 oplocks = no
-	 level2 oplocks = no
-	 writeable = yes
-	 invalid users = root
-	[opsi_config]
-	 available = yes
-	 comment = opsi config share
-	 path = /var/lib/opsi/config
-	 writeable = yes
-	 invalid users = root
-	[opsi_workbench]
-	 available = yes
-	 comment = opsi workbench share
-	 path = /home/opsiproducts
-	 writeable = yes
-	 invalid users = root
-EOF
 
 # FIXME: We should disable the license server here, because otherwise it gives
 #        an error each time an OPSI client is visited in Fusion Directory.
@@ -351,7 +313,7 @@ update-fusion
 
 /etc/init.d/samba restart
 /etc/init.d/fts restart
-/etc/init.d/atftpd restart
+/etc/init.d/tftpd-hpa restart
 /etc/init.d/apache2 restart
 /etc/init.d/gosa-si restart
 /etc/init.d/opsiconfd restart
