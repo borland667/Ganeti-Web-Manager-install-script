@@ -100,7 +100,8 @@ sed -i 's@START_CLIENT=0@START_CLIENT=1@' /etc/default/argonaut-client
 echo ""
 echo "You must :"
 echo "  * add an Argonaut server object to LDAP."
-echo "  * enable the Argonaut Client functionality (in the tab of this name"
+echo "  * enable the Argonaut Client functionality (in the Argonaut Client tab)"
+echo "...you may have to log out and back in to get these options to appear. 
 #FIXME: Make better wording, and understand better.
 echo "< WHEN FINISHED hit enter to continue... >"
 read my_dummy_value
