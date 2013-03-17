@@ -23,8 +23,27 @@ fi
 
 # Install the LDAP enabled DHCP3 server and FusionDirectory plugins.
 apt-get update
-if apt-get install -y --allow-unauthenticated isc-dhcp-server-ldap fusiondirectory-plugin-dhcp fusiondirectory-plugin-dhcp-schema; then
-	fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/dhcp-fd.schema
+
+# FIXME: Remove when this is no longer required (and put isc-dhcp-server-ldap back into
+#        an apt-get install).
+echo "We temporarily need to patch and recompile the isc-dhcp-server-ldap package."
+echo "Be sure to have a deb-src repo installed."
+echo "Hit any key to continue (or Ctrl-C to quit)..."
+cd /usr/src
+apt-get install wget
+apt-get source isc-dhcp-server-ldap
+wget 'http://bugs.debian.org/cgi-bin/bugreport.cgi?msg=25;filename=isc-dhcp-server-ldap-4.2.4sid-fix-ldapcrypto-support.patch;att=1;bug=692808' -O 1.patch
+wget 'http://bugs.debian.org/cgi-bin/bugreport.cgi?msg=25;filename=isc-dhcp-server-ldap-4.2.4sid-fix-ldap-support.patch;att=2;bug=692808' -O 2.patch
+cd isc-dhcp-4.2.2.dfsg.1
+patch -p1 <..1.patch
+patch -p1 <..2.patch
+apt-get install groff autoconf automake pkg-config po-debconf libssl-dev libldap2-dev hardening-wrapper debhelper
+dpkg-buildpackage
+cd ..
+dpkg -i isc-dhcp-server-ldap_*.deb isc-dhcp-server_*.deb 
+
+if apt-get install -y --allow-unauthenticated fusiondirectory-plugin-dhcp fusiondirectory-plugin-dhcp-schema fusiondirectory-plugin-systems fusiondirectory-plugin-systems-schema; then
+	fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/dhcp-fd.schema /etc/ldap/schema/fusiondirectory/systems-fd.schema /etc/ldap/schema/fusiondirectory/systems-fd-conf.schema /etc/ldap/schema/fusiondirectory/service-fd.schema
 	echo "Required packages successfully installed..."
 else
 	echo "Required packages failed to install successfully.  Exiting..."
