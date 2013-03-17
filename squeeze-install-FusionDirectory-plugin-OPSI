@@ -37,7 +37,7 @@ if [ ! -f /etc/bind/rndc.key ]; then
 fi
 
 # squeeze-install-FusionDirectory-Samba+goPDC
-if [ ! -f /etc/samba/smb.conf ]; then
+if [ ! -f /etc/init.d/samba ]; then
   echo "Run the squeeze-install-FusionDirectory-Samba+goPDC script before this one. Samba"
   echo "must be installed and configured before we can continue..."
   exit 1
@@ -88,7 +88,8 @@ fi
 update-alternatives --set java /usr/lib/jvm/java-6-openjdk/jre/bin/java
 
 # This Argonaut package needs to be installed... 
-if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonau-fuse argonaut-fuse-opsi opsi-depotserver-expert; then
+if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse argonaut-fuse-opsi opsi-linux-bootimage; then
+  apt-get -y --allow-unauthenticated install opsi-depotserver-expert
   echo "Installed Argonaut and FD OPSI modules from repository..."
   fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd.schema
   fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd-conf.schema
