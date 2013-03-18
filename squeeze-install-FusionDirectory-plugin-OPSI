@@ -88,7 +88,7 @@ fi
 update-alternatives --set java /usr/lib/jvm/java-6-openjdk/jre/bin/java
 
 # This Argonaut package needs to be installed... 
-if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse argonaut-fuse-opsi opsi-linux-bootimage; then
+if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse argonaut-fuse-opsi argonaut-server-module-opsi opsi-linux-bootimage; then
   apt-get -y --allow-unauthenticated install opsi-depotserver-expert
   echo "Installed Argonaut and FD OPSI modules from repository..."
   fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd.schema
@@ -102,6 +102,8 @@ fi
 
 # FIXME: I got an error setting rights if this directory didn't exist.  Do I need to create it manually?
 mkdir /home/opsiproducts
+# FIXME: I got another error starting opsiconfd if /var/lib/opsi/depot didn't exist
+mkdir /var/lib/opsi/depot
 
 apt-get -y install mysql-server
 opsi-setup --configure-mysql
@@ -173,10 +175,13 @@ echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.co
 # FIXME: argonaut-fuse.conf doesn't exist anymore.  This is configured in FD?  If so
 #        write instructions (perhaps using the above info?)
 # ...then configure our Argonaut-fuse server to bind to LDAP as admin.
-sed -i 's@^dn=[\t]*$@dn='$LDAP_ADMIN_DN'@' /etc/argonaut/argonaut-fuse.conf
-sed -i '0,/password/s@^password[\t]*$=@password='$LDAP_ADMIN_PW'@' /etc/argonaut/argonaut-fuse.conf
-
-apt-get --allow-unauthenticated -y install argonaut-server-module-opsi
+echo "Please add an \"Argonaut Fuse Settings\" object to your server and fill out"
+echo "the OPSI details."
+echo "I'm not sure what these are, but previously when these were in a config file"
+echo "they were:"
+echo "Admin user: "$LDAP_ADMIN_DN
+echo "...and the password for this user.  Perhaps this has changed?"
+read dummy
 
 echo ""
 echo "The pcpatch user is used for various management tasks in OPSI."
