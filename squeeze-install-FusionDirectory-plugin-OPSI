@@ -93,7 +93,7 @@ service tftp
 EOF
 
 # FIXME: Hopefully the OpenJDK works...  if not revert to the non-free Sun JDK
-if apt-get install -y openjdk-6-jre; then
+if apt-get install -y openjdk-7-jre; then
   test
 else
   echo "Didn't successfully install "
@@ -102,7 +102,7 @@ fi
 
 # Make sure the OpenJDK JRE is used.  Use --config instead of --set to
 # make this change interactively if required.
-update-alternatives --set java /usr/lib/jvm/java-6-openjdk/jre/bin/java
+update-alternatives --set java /usr/lib/jvm/java-7-openjdk/jre/bin/java
 
 # This Argonaut package needs to be installed... 
 if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse argonaut-fuse-opsi argonaut-server-module-opsi opsi-linux-bootimage; then
