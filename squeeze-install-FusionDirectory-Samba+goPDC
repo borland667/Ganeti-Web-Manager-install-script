@@ -206,18 +206,6 @@ echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
 LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '{ print $2 }'`
 echo "Base DN extracted from LDAP (cn=config): "$LDAP_BASE_DN
 
-#FIXME: Is this even required?
-echo '
-	dn: olcDatabase={1}hdb,cn=config
-	changetype: modify
-	add: olcAccess
-	olcAccess: {1}to attrs=loginShell,gecos
-	  by dn="'$LDAP_ADMIN_DN'" write
-	  by self write
-	  by * read
-' | ldapmodify -Y EXTERNAL -H ldapi:///
-
-
 sed -i 's@obey pam restrictions = yes@obey pam restrictions = no@' /etc/samba/smb.conf
 # ...we then search for and replace the passdb backend config option, and also paste
 # in a lot of other config information (for LDAP, smbldap-tools etc...).  Notice we
@@ -310,18 +298,18 @@ sed -i 's@ldapTLS="1"@ldapTLS="0"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@verify="require"@verify="none"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@strictNamingRules="true@strictNamingRules="false@' /etc/fusiondirectory/fusiondirectory.conf
 
-## FIXME: Trying to not explicitly specify SID in smbldap.conf.  Works?
-DOMAIN_SID=`net getdomainsid | grep domain - | awk -F':' '{print $2}' | sed 's/ //g'`
-echo "Extracted Domain SID from LDAP..."
-sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' /etc/smbldap-tools/smbldap.conf
-#sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@@' /etc/smbldap-tools/smbldap.conf
-
 ##FIXME: bugfix for typo in script?  Get rid of this when fixed
 #ln -s /usr/bin/net /usr/bin/netx
 
 # We need a password to access LDAP
 echo "Please enter your LDAP admin password"
 smbpasswd -W
+
+## FIXME: Trying to not explicitly specify SID in smbldap.conf.  Works?
+DOMAIN_SID=`net getdomainsid | grep domain - | awk -F':' '{print $2}' | sed 's/ //g'`
+echo "Extracted Domain SID from LDAP..."
+sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' /etc/smbldap-tools/smbldap.conf
+#sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@@' /etc/smbldap-tools/smbldap.conf
 
 # Initialise the LDAP database (what does this do exactly?)
 # **NOTE**: This makes the tool start adding uids and gids from 1000 (hardcoded
