@@ -105,8 +105,9 @@ fi
 update-alternatives --set java /usr/lib/jvm/java-7-openjdk/jre/bin/java
 
 # This Argonaut package needs to be installed... 
-if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse argonaut-fuse-opsi argonaut-server-module-opsi opsi-linux-bootimage; then
+if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse argonaut-fuse-opsi argonaut-server-module-opsi; then
   apt-get -y --allow-unauthenticated install opsi-depotserver-expert
+  apt-get -y --allow-unauthenticated install opsi-linux-bootimage
   echo "Installed Argonaut and FD OPSI modules from repository..."
   fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd.schema
   fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd-conf.schema
@@ -147,7 +148,8 @@ echo "The password you need to use is : "$OPSIADMIN_PW
 echo "You will also need to enable Unix/POSIX and Samba extensions on the a/c."
 echo "This is because Samba is LDAP-enabled, and as of v3.0.23 doesn't support"
 echo "multiple password backends, so we can't support non-ldap Samba accounts."
-echo "One day I will automate this.  Hit any key to continue..."
+echo "Do this, then hit any key to continue..."
+# FIXME: Must automate this in future.
 read dummyvar 
 #<bilbo-the-hobbit> you have in gosa the tool mkntpasswd
 # I can't find this tool.  From the mailing list it seems to be a GOsa 2.5 tool
@@ -332,5 +334,5 @@ echo ""
 echo "Last of all, you must install and configure your OS software and apps"
 echo "onto the server.  This is documented in the OPSI manual."
 # FIXME: Is the following required or is this all done through Fusion Directory now?
-echo "https://localhost:4447/"
+echo "https://localhost:4447/configed"
 
