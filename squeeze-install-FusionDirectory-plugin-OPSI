@@ -93,7 +93,8 @@ service tftp
 EOF
 
 # FIXME: Hopefully the OpenJDK works...  if not revert to the non-free Sun JDK
-if apt-get install -y openjdk-7-jre; then
+# FIXME: Should we really install the icedtea plugin?
+if apt-get install -y openjdk-7-jre icedtea-7-plugin; then
   test
 else
   echo "Didn't successfully install "
@@ -125,12 +126,6 @@ mkdir /var/lib/opsi/depot
 
 apt-get -y install mysql-server
 opsi-setup --configure-mysql
-opsi-setup --init-current-config
-opsi-setup --set-rights
-/etc/init.d/opsiconfd restart
-/etc/init.d/opsipxeconfd restart
-
-opsi-setup --auto-configure-samba
 
 # OPSI administrators must belong to the group "opsiadmin" and
 # users which can make opsi packages must belong to "pcpatch"
@@ -151,6 +146,17 @@ echo "multiple password backends, so we can't support non-ldap Samba accounts."
 echo "Do this, then hit any key to continue..."
 # FIXME: Must automate this in future.
 read dummyvar 
+
+#cp -a /etc/skel/ /home/pcpatch
+#chown pcpatch.pcpatch /home/pcpatch -R
+
+opsi-setup --init-current-config
+opsi-setup --set-rights
+/etc/init.d/opsiconfd restart
+/etc/init.d/opsipxeconfd restart
+
+opsi-setup --auto-configure-samba
+
 #<bilbo-the-hobbit> you have in gosa the tool mkntpasswd
 # I can't find this tool.  From the mailing list it seems to be a GOsa 2.5 tool
 # Perhaps I can use the goPDC tools?  Will this also change the POSIX password?
