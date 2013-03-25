@@ -105,6 +105,30 @@ fi
 # make this change interactively if required.
 update-alternatives --set java /usr/lib/jvm/java-7-openjdk/jre/bin/java
 
+# FIXME: We should eventually do this automatically.
+echo ""
+echo "***NOTE***"
+echo "We must manually create users required for correct OPSI operation"
+echo "otherwise the OPSI debs incorrectly create local users which won't work"
+echo "for our server - in our case Samba instead needs to authenticate users"
+echo "against users stored in Fusion Directory."
+echo "* Create the following users:"
+echo "User          Home Directory          Shell"
+echo "pcpatch       /var/lib/opsi           /bin/bash"
+echo "opsiconfd     /var/lib/opsi           /bin/bash"
+echo "* Create the following groups:"
+echo "opsiadmin (add opsiconfd to this group)"
+echo "pcpatch"
+echo "If you want to create an opsi admin user, add it to pcpatch and opsiconfd."
+echo "DO THIS NOW!!! then hit any key to continue..."
+read dummy
+
+# Refresh the cache of user credentials so these are up to date and ready
+/etc/init.d/nslcd restart
+# Give the opsiconfd user read access to the local /etc/shadow file, and
+# perhaps shadow info in LDAP via NSS.  FIXME: Check if this works correctly.
+usermod -a -G shadow opsiconfd
+
 # This Argonaut package needs to be installed... 
 if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse argonaut-fuse-opsi argonaut-server-module-opsi; then
   apt-get -y --allow-unauthenticated install opsi-depotserver-expert
@@ -319,11 +343,6 @@ opsi-product-updater -i -vv
 # pxelinux.cfg/default (link to above file)
 # pxelinux.cfg/install
 # pxelinux.cfg/memtest86
-
-# FIXME: Apt triggers aren't working with the Fusion Directory packages yet, so
-#        we need to update the web interface manually.  Once this
-#        works this step can be removed.
-update-fusion
 
 /etc/init.d/samba restart
 /etc/init.d/xinetd restart
