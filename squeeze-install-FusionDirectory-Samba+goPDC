@@ -354,6 +354,8 @@ read dummy
 # This daemon caches user/password info, so restart to make sure our new Domain
 # Admin stuff works right away.
 /etc/init.d/nslcd restart
+echo "NOTE: The nslcd daemon caches Samba auth details, so if you want a password"
+echo "      change to happen right away you must restart it (as we've done now)."
 # Is there any way to automate the above ie. samba group stuff and domain admin???
 
 ## NOTES ABOUT TRADEOFFS OF DIFFERENT WAYS OF ACHIEVING THINGS :
