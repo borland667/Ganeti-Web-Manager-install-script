@@ -302,9 +302,12 @@ sed -i 's@strictNamingRules="true@strictNamingRules="false@' /etc/fusiondirector
 ##FIXME: bugfix for typo in script?  Get rid of this when fixed
 #ln -s /usr/bin/net /usr/bin/netx
 
-# We need a password to access LDAP
-echo "Please enter your LDAP admin password"
-smbpasswd -W
+# FIXME: If this way of changing the LDAP admin pw works, delete the
+#        old manual way.
+## We need a password to access LDAP
+#echo "Please enter your LDAP admin password"
+#smbpasswd -W
+smbpasswd -w $LDAP_ADMIN_PW
 
 ## FIXME: Trying to not explicitly specify SID in smbldap.conf.  Works?
 DOMAIN_SID=`net getdomainsid | grep domain - | awk -F':' '{print $2}' | sed 's/ //g'`
@@ -340,7 +343,11 @@ echo "2) Under the Samba tab edit the Samba SID so that it is:"
 echo "   "$DOMAIN_SID
 echo "3) The user that will be your Samba domain admin must have both 'Unix'"
 echo "and 'Samba' attributes enabled in Fusion Directory, have 'domain admins'"
-echo "as its primary group, and be a member of 'domain uses'"
+echo "as its primary group, and be a member of 'domain uses' and 'Administrators'"
+echo ""
+echo "*** WHEN THIS IS DONE - hit any key to continue ***"
+read dummy
+/etc/init.d/samba restart
 # Is there any way to automate the above ie. samba group stuff and domain admin???
 
 ## NOTES ABOUT TRADEOFFS OF DIFFERENT WAYS OF ACHIEVING THINGS :
