@@ -105,21 +105,16 @@ fi
 # make this change interactively if required.
 update-alternatives --set java /usr/lib/jvm/java-7-openjdk/jre/bin/java
 
-# FIXME: We should eventually do this automatically.
+# FIXME: We should eventually do this more automatically.
 echo ""
 echo "***NOTE***"
-echo "We must manually create users required for correct OPSI operation"
-echo "otherwise the OPSI debs incorrectly create local users which won't work"
-echo "for our server - in our case Samba instead needs to authenticate users"
-echo "against users stored in Fusion Directory."
-echo "* Create the following users:"
-echo "User          Home Directory          Shell"
-echo "pcpatch       /var/lib/opsi           /bin/bash"
-echo "opsiconfd     /var/lib/opsi           /bin/bash"
-echo "* Create the following groups:"
-echo "opsiadmin (add opsiconfd to this group)"
-echo "pcpatch"
-echo "If you want to create an opsi admin user, add it to pcpatch and opsiconfd."
+echo "We must manually create the user and groups required for correct OPSI operation"
+echo "otherwise the OPSI debs incorrectly create them locally.  This"
+echo "won't work in our scenario (ie. with an LDAP-aware Samba)."
+echo "The user we create is called pcpatch with a homedir /var/lib/opsi"
+echo "We also need to create two empty groups called opsiadmin and pcpatch."
+echo "If you want FD user/s to be OPSI administrators add them to opsiadmin and"
+echo "pcpatch, and also make sure these users have Samba attributes enabled."
 echo "DO THIS NOW!!! then hit any key to continue..."
 read dummy
 
