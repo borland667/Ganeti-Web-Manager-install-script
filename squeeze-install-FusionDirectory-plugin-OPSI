@@ -87,7 +87,7 @@ service tftp
 	wait            = yes
 	user            = nobody
 	server          = /usr/sbin/in.tftpd
-	server_args     = /tftpboot
+	server_args     = /tftpboot/linux
 	disable         = no
 	}
 EOF
@@ -328,9 +328,8 @@ echo "By default only the local root user can administrate OPSI.  If you want"
 echo "another user as OPSI admin they will need to be a member of two groups :"
 echo "pcpatch and opsiadmin."
 echo ""
-echo "Also, you must specify 'linux/pxelinux.0' in the DHCP section of"
-echo "Fusion Directory so that clients know where their boot file is so they"
-echo "can begin the TFTP PXE boot process."
+echo "Also, you must specify 'pxelinux.0' as the bootup filename in the DHCP"
+echo "Service of your Fusion Directory server."
 echo ""
 echo "Last of all, you must install and configure your OS software and apps"
 echo "onto the server.  This is documented in the OPSI manual."
