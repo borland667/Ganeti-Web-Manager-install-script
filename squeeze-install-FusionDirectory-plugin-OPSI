@@ -145,30 +145,6 @@ mkdir /var/lib/opsi/depot
 
 apt-get -y install mysql-server
 opsi-setup --configure-mysql
-
-# OPSI administrators must belong to the group "opsiadmin" and
-# users which can make opsi packages must belong to "pcpatch"
-# By default the root user is considered an OPSI admin without
-# needing to be a member of both these groups, and user pcpatch
-# has its primary group as pcpatch so doesn't need to be explicitly
-# added.  If we want to add an opsi admin user uncomment the
-# following :
-echo ""
-echo "Creating the opsiadmin account..."
-OPSIADMIN_PW=`openssl rand -base64 12`
-echo "Temporary : You'll have to create the opsiadmin account in FusionDirectory"
-echo "manually."
-echo "The password you need to use is : "$OPSIADMIN_PW
-echo "You will also need to enable Unix/POSIX and Samba extensions on the a/c."
-echo "This is because Samba is LDAP-enabled, and as of v3.0.23 doesn't support"
-echo "multiple password backends, so we can't support non-ldap Samba accounts."
-echo "Do this, then hit any key to continue..."
-# FIXME: Must automate this in future.
-read dummyvar 
-
-#cp -a /etc/skel/ /home/pcpatch
-#chown pcpatch.pcpatch /home/pcpatch -R
-
 opsi-setup --init-current-config
 opsi-setup --set-rights
 /etc/init.d/opsiconfd restart
@@ -219,12 +195,16 @@ echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.co
 # FIXME: argonaut-fuse.conf doesn't exist anymore.  This is configured in FD?  If so
 #        write instructions (perhaps using the above info?)
 # ...then configure our Argonaut-fuse server to bind to LDAP as admin.
-echo "Please add an \"Argonaut Fuse Settings\" object to your server and fill out"
+echo ""
+echo "***ATTENTION***"
+echo "Please add an \"Argonaut Fuse Settings\" service to your server and fill out"
 echo "the OPSI details."
 echo "I'm not sure what these are, but previously when these were in a config file"
 echo "they were:"
 echo "Admin user: "$LDAP_ADMIN_DN
 echo "...and the password for this user.  Perhaps this has changed?"
+echo "Also, the the Pxelinux cfg path and static path must start with:"
+echo "/tftpboot/linux , and not /srv/tftp .  Make these changes then hit any key."
 read dummy
 
 echo ""
@@ -348,11 +328,17 @@ echo "By default only the local root user can administrate OPSI.  If you want"
 echo "another user as OPSI admin they will need to be a member of two groups :"
 echo "pcpatch and opsiadmin."
 echo ""
-echo "Also, you must specify pxelinux.0 in the DHCP section of Fusion Directory"
-echo "so that clients will begin the TFTP PXE boot process."
+echo "Also, you must specify 'linux/pxelinux.0' in the DHCP section of"
+echo "Fusion Directory so that clients know where their boot file is so they"
+echo "can begin the TFTP PXE boot process."
 echo ""
 echo "Last of all, you must install and configure your OS software and apps"
 echo "onto the server.  This is documented in the OPSI manual."
 # FIXME: Is the following required or is this all done through Fusion Directory now?
 echo "https://localhost:4447/configed"
+echo "***BUG*** you must also add the following line to /usr/sbin/argonaut-server"
+echo "          $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;"
+echo "          This is a bug workaround.  (Remove this once it's no longer"
+echo "          required."
+
 
