@@ -111,9 +111,10 @@ echo "object."
 echo "< WHEN FINISHED hit enter to continue... >"
 read my_dummy_value
 
-echo "ldap2bind being run for the first time..."
+echo "You need to manually run argonaut-ldap2zone after you've updated your zone."
+echo "FIXME: Why?  This shouldn't be required."
 echo "NOTE: This will give errors unless at least one host has been added to DNS."
 # Make sure bind is running first...
 /etc/init.d/bind9 restart
-
+argonaut-ldap2zone
 #FIXME: Perhaps some instructions on checking name resolution is functioning correctly?
