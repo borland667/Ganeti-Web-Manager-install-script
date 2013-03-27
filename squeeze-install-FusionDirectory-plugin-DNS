@@ -30,11 +30,11 @@ fi
 # dpkg-dev, subversion - needed for downloading and building the
 # ldap2zone package
 apt-get update
-apt-get -y --allow-unauthenticated install bind9 dpkg-dev libldap2-dev ldap-utils subversion fusiondirectory-plugin-dns fusiondirectory-plugin-dns-schema debhelper dpatch argonaut-ldap2zone
+apt-get -y --allow-unauthenticated install bind9 dpkg-dev libldap2-dev ldap-utils subversion fusiondirectory-plugin-dns fusiondirectory-plugin-dns-schema debhelper dpatch argonaut-ldap2zone fusiondirectory-plugin-systems fusiondirectory-plugin-systems-schema
 
 # We need to configure slapd to include this dnszone schema.  We've also
 # added a couple of (optional) indexes here to boost performance.
-fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/dnszone.schema
+fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/dnszone.schema /etc/ldap/schema/fusiondirectory/systems-fd.schema /etc/ldap/schema/fusiondirectory/systems-fd-conf.schema /etc/ldap/schema/fusiondirectory/service-fd.schema
 
 cat > /tmp/fix.ldif <<-EOF
 	dn: olcDatabase={1}hdb,cn=config
