@@ -645,17 +645,22 @@ chown cyrus.mail -R /var/spool/sieve/*
 
 echo "Successfully finished configuration..."
 echo ""
-echo "To activate Cyrus in Fusion Directory create an IMAP/POP3 service in your"
-echo "server-object and fill in the following values :"
-echo "Server identifier - "`hostname --fqdn`
-echo "Connect URL - {"`hostname --fqdn`":993/ssl/novalidate-cert}"
-echo "Admin user - fd-admin (if you used the default during setup)"
-echo "Password - <the password you entered during setup>"
-if [ -f /etc/fusiondirectory/fusiondirectory.conf ]; then
-  echo "Sieve connect URL - {127.0.1.1:4190/tls}"
-else
-  echo "Sieve connect URL - {"`hostname --fqdn`":4190/tls}"
-fi
+echo "To activate Cyrus in Fusion Directory create both a Cyrus and Postfix"
+echo "service in your server-object.  In your Cyrus service:"
+echo "Most entries can be left blank, but the admin user will be fd-admin"
+echo "if you use the default."
+echo "In your Postfix service:"
+echo "FQDN (pretty obvious).  Not sure Domains are even required."
+#echo "Port: "
+#echo "Server identifier - "`hostname --fqdn`
+#echo "Connect URL - {"`hostname --fqdn`":993/ssl/novalidate-cert}"
+#echo "Admin user - fd-admin (if you used the default during setup)"
+#echo "Password - <the password you entered during setup>"
+#if [ -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+#  echo "Sieve connect URL - {127.0.1.1:4190/tls}"
+#else
+#  echo "Sieve connect URL - {"`hostname --fqdn`":4190/tls}"
+#fi
 
 # FIXME: We must change the port above from 2000 to 4190 so this will work in
 #        Squeeze.  Test to make sure this works correctly.
