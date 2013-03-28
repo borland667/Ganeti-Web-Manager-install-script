@@ -199,18 +199,18 @@ echo ""
 echo "***ATTENTION***"
 echo "Please add an \"Argonaut Fuse Settings\" service to your server and fill out"
 echo "the OPSI details."
-echo "I'm not sure what these are, but previously when these were in a config file"
-echo "they were:"
-echo "Admin user: "$LDAP_ADMIN_DN
-echo "...and the password for this user.  Perhaps this has changed?"
+echo "The user will need to be an OPSI admin ie. a member of pcpatch and opsiadmin."
 echo "Also, the the Pxelinux cfg path and static path must start with:"
 echo "/tftpboot/linux , and not /srv/tftp .  Make these changes then hit any key."
 read dummy
+mkdir pxelinux.static
+opsi-setup --set-rights
 
-echo ""
-echo "The pcpatch user is used for various management tasks in OPSI."
-echo "Please enter a password for this account."
-opsi-admin -d task setPcpatchPassword
+# FIXME: I don't think this is required anymore.  Check, then remove.
+# echo ""
+# echo "The pcpatch user is used for various management tasks in OPSI."
+# echo "Please enter a password for this account."
+# opsi-admin -d task setPcpatchPassword
 
 ## We must install the products essential to OPSI operation :
 #cd /home/opsiproducts
@@ -323,6 +323,7 @@ opsi-product-updater -i -vv
 /etc/init.d/xinetd restart
 /etc/init.d/apache2 restart
 /etc/init.d/opsiconfd restart
+/etc/init.d/argonaut-fuse start
 
 echo "By default only the local root user can administrate OPSI.  If you want"
 echo "another user as OPSI admin they will need to be a member of two groups :"
@@ -336,7 +337,7 @@ echo "onto the server.  This is documented in the OPSI manual."
 # FIXME: Is the following required or is this all done through Fusion Directory now?
 echo "https://localhost:4447/configed"
 echo "***BUG*** you must also add the following line to /usr/sbin/argonaut-server"
-echo "          $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;"
+echo "          \$ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;"
 echo "          This is a bug workaround.  (Remove this once it's no longer"
 echo "          required."
 
