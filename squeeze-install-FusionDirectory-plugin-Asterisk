@@ -35,9 +35,10 @@ if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
 	exit 1
 fi
 
-# gofon is the Asterisk plugin
-aptitude install -y --allow-untrusted mysql-server asterisk dahdi-source module-assistant libmyodbc asterisk-mysql asterisk-sounds-main asterisk-sounds-extra fusiondirectory-plugin-gofon
+aptitude install -y --allow-untrusted mysql-server asterisk dahdi-source module-assistant libmyodbc asterisk-mysql asterisk-sounds-main fusiondirectory-plugin-fax fusiondirectory-plugin-fax-schema fusiondirectory-plugin-asterisk fusiondirectory-plugin-asterisk-schema
 # does asterisk_cdr need to be installed too?
+
+fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/asterisk-fd.schema /etc/ldap/schema/fusiondirectory/asterisk-fd-conf.schema /etc/ldap/schema/fusiondirectory/fax-fd.schema
 
 # We want to allow connections from addresses other than 127.0.0.1, so we
 # comment out the bind-address config option in /etc/mysql/my.cnf causing mysql
