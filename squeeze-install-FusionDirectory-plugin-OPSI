@@ -127,7 +127,7 @@ usermod -a -G shadow opsiconfd
 # This Argonaut package needs to be installed... 
 if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse argonaut-fuse-opsi argonaut-server-module-opsi; then
   apt-get -y --allow-unauthenticated install opsi-depotserver-expert
-  apt-get -y --allow-unauthenticated install opsi-linux-bootimage
+  apt-get -y --allow-unauthenticated install opsi-linux-bootimage libproc-daemon-perl syslinux
   echo "Installed Argonaut and FD OPSI modules from repository..."
   fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd.schema
   fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd-conf.schema
@@ -146,6 +146,7 @@ mkdir /var/lib/opsi/depot
 apt-get -y install mysql-server
 opsi-setup --configure-mysql
 opsi-setup --init-current-config
+mkdir /tftpboot/linux/pxelinux.static
 opsi-setup --set-rights
 /etc/init.d/opsiconfd restart
 /etc/init.d/opsipxeconfd restart
@@ -184,8 +185,6 @@ opsi-setup --auto-configure-samba
 # FIXME: How does this do what it does?
 #printf "%s\n" '/\[ArpHandler\]/' '/enabled = false/s/false/true' w | ex -s /etc/gosa-si/server.conf
 
-apt-get -qq install libproc-daemon-perl syslinux
-
 # We get our admin dn and password from fusiondirectory.conf as these are required in the
 # [LDAP] section - fts must use them to connect to our LDAP directory.
 LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
@@ -203,8 +202,6 @@ echo "The user will need to be an OPSI admin ie. a member of pcpatch and opsiadm
 echo "Also, the the Pxelinux cfg path and static path must start with:"
 echo "/tftpboot/linux , and not /srv/tftp .  Make these changes then hit any key."
 read dummy
-mkdir pxelinux.static
-opsi-setup --set-rights
 
 # FIXME: I don't think this is required anymore.  Check, then remove.
 # echo ""
