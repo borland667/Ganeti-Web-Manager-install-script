@@ -26,6 +26,7 @@ fi
 #echo "3) The LDAP search base (which can also be left at its default value)" 
 
 # First we install the plugin that allows Fusion Directory to manage Samba users
+apt-get update
 apt-get -y --allow-unauthenticated install fusiondirectory-plugin-samba fusiondirectory-plugin-samba-schema
 
 fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/samba-fd-conf.schema
@@ -206,18 +207,6 @@ echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
 LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep ^olcSuffix | awk '{ print $2 }'`
 echo "Base DN extracted from LDAP (cn=config): "$LDAP_BASE_DN
 
-#FIXME: Is this even required?
-echo '
-	dn: olcDatabase={1}hdb,cn=config
-	changetype: modify
-	add: olcAccess
-	olcAccess: {1}to attrs=loginShell,gecos
-	  by dn="'$LDAP_ADMIN_DN'" write
-	  by self write
-	  by * read
-' | ldapmodify -Y EXTERNAL -H ldapi:///
-
-
 sed -i 's@obey pam restrictions = yes@obey pam restrictions = no@' /etc/samba/smb.conf
 # ...we then search for and replace the passdb backend config option, and also paste
 # in a lot of other config information (for LDAP, smbldap-tools etc...).  Notice we
@@ -256,7 +245,11 @@ else
 fi
 # It's very strange that "ldap ssl = no" is required to get ssl/tls over ldaps
 # working.  It seems quite counter intuitive to me, and wasted lots of time.
-# NOTE: This isn't yet tested in Lenny.  Does it work?
+
+echo "Please enter your Samba Domain Name (one word, all caps):"
+read NT_DOMAIN
+sed -i 's@workgroup = WORKGROUP@workgroup = '$NT_DOMAIN'@' /etc/samba/smb.conf
+/etc/init.d/samba restart
 
 #### FIXME:Should we set this stuff up in the script?  I haven't enabled this yet
 #### I'm leaving it here to inform admins how to enable these things.  Perhaps
@@ -305,25 +298,22 @@ sed -i 's@ldapSSL="0"@ldapSSL="1"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@ldapTLS="1"@ldapTLS="0"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@verify="require"@verify="none"@' /etc/smbldap-tools/smbldap.conf
 sed -i 's@strictNamingRules="true@strictNamingRules="false@' /etc/fusiondirectory/fusiondirectory.conf
+
+##FIXME: bugfix for typo in script?  Get rid of this when fixed
+#ln -s /usr/bin/net /usr/bin/netx
+
+# FIXME: If this way of changing the LDAP admin pw works, delete the
+#        old manual way.
+## We need a password to access LDAP
+#echo "Please enter your LDAP admin password"
+#smbpasswd -W
+smbpasswd -w $LDAP_ADMIN_PW
+
 ## FIXME: Trying to not explicitly specify SID in smbldap.conf.  Works?
+DOMAIN_SID=`net getdomainsid | grep domain - | awk -F':' '{print $2}' | sed 's/ //g'`
+echo "Extracted Domain SID from LDAP..."
 sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@SID="'$DOMAIN_SID'"@' /etc/smbldap-tools/smbldap.conf
 #sed -i 's@SID="S-1-5-21-2252255531-4061614174-2474224977"@@' /etc/smbldap-tools/smbldap.conf
-
-# The nscd daemon which caches name service data (ie. passwd/shadow/group)
-# can cause problems when this data changes quickly eg. adding users, machines etc...
-# One of the goPDC authors suggested using a "post_create" script to clear this
-# data after Samba makes such changes (eg. from the "add machine script"),
-# and I THINK the following is what he meant.
-# NOTE: This didn't seem to work for me in Lenny.  I worked around
-# the problem by putting my "post_create" scripts into the smb.conf file
-# - I used semicolons to put two scripts where one should go in /etc/samba/smb.conf .
-
-#FIXME: bugfix for typo in script?  Get rid of this when fixed
-ln -s /usr/bin/net /usr/bin/netx
-
-# We need a password to access LDAP
-echo "Please enter your LDAP admin password"
-smbpasswd -W
 
 # Initialise the LDAP database (what does this do exactly?)
 # **NOTE**: This makes the tool start adding uids and gids from 1000 (hardcoded
@@ -340,40 +330,34 @@ smbpasswd -W
 
 /etc/init.d/samba restart
 
-## We can allow Fusion Directory to deal with groups /w spaces in them eg.
-## "domain users" and "domain admins".  To enable this edit
-## /etc/fusiondirectory/fusiondirectory.conf and change :
-## strictNamingRules = "true"
-## to
-## strictNamingRules = "false"
-## I believe this is required(?) for enabling GOpdc functionality... is this true?
-## What are the repercussions of doing this?!?!?!?
-## And you must edit sambaSID to equal your local SID (ie. net getdomainsid)
-
-DOMAIN_SID=`net getdomainsid | grep domain - | awk -F':' '{print $2}' | sed 's/ //g'`
-echo "Extracted Domain SID from LDAP..."
-# FIXME: I've just tried erasing sambaSID completely rather than substituting
-# eg:
-# sed -i 's@sambaSID="0-815-4711@sambaSID="'$DOMAIN_SID'"\
-# 	      sambaversion="3@' /etc/fusiondirectory/fusiondirectory.conf
-# Apparently Fusion Directory can automatically get this from LDAP?
-sed -i 's@sambaSID="0-815-4711"@@' /etc/fusiondirectory/fusiondirectory.conf
-# FIXME: Erase sambaRidBase...  Fusion Directory can get this from LDAP.
-#        Works?
-sed -i 's@sambaRidBase="1"@@' /etc/fusiondirectory/fusiondirectory.conf
-
 # Run this to update the Fusion Directory interface to include Samba options.
 fusiondirectory-setup --update-cache --update-locales
 
 echo ""
 echo "!!! YOU ARE NOT FINISHED YET !!!"
 echo "For correct PDC functionality you must : "
-echo "1) In Fusion Directory edit the Samba groups (ie. 'domain admins',"
-echo "'domain guests','domain machines' and 'domain users') so they all have"
-echo "check-marks beside the domain attribute"
-echo "2) The user that will be your Samba domain admin must have both 'Unix'"
+echo "1) In Fusion Directory edit Configuration (under Addons) and deselect"
+echo "   Strict Naming Policy (right down the bottom).  This allows Microsoft"
+echo "   style group names with spaces and capitals."
+echo "2) Under the Samba tab edit the Samba SID so that it is:"
+echo "   "$DOMAIN_SID
+echo "3) The user that will be your Samba domain admin must have both 'Unix'"
 echo "and 'Samba' attributes enabled in Fusion Directory, have 'domain admins'"
-echo "as its primary group, and be a member of 'domain uses'"
+echo "as its primary group, and be a member of 'domain uses' and 'Administrators'"
+echo ""
+echo "*** WHEN THIS IS DONE - hit any key to continue ***"
+read dummy
+
+# FIXME: We probably don't need this...  delete if this is so.
+#/etc/init.d/samba restart
+
+# This daemon caches user/password info, so restart to make sure our new Domain
+# Admin stuff works right away.
+/etc/init.d/nslcd restart
+echo "NOTE: In our configuration changes don't flow from LDAP right away.  The"
+echo "      nslcd daemon caches Samba auth details, so if you want a password"
+echo "      change to flow down from LDAP right away you must restart it (as"
+echo "      we've just done)."
 # Is there any way to automate the above ie. samba group stuff and domain admin???
 
 ## NOTES ABOUT TRADEOFFS OF DIFFERENT WAYS OF ACHIEVING THINGS :

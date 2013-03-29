@@ -19,18 +19,18 @@ if [ ! -f /etc/argonaut/argonaut.conf ]; then  echo "Run the squeeze-install-Fus
 fi
 
 echo ""
-echo "WARNING!!!  You may decide to put an apt repository in /var/www/debian"
-echo "This script can try to do this for you, but a repo is more than 30"
-echo "gigabytes and will take eg. 3 days on a 1.5mb connection.  You may want"
-echo "to do this by hand BEFORE running this script.  Hit Ctrl-C to quit, or"
-echo "<enter> to continue anyway..."
+echo "WARNING!!!  You may choose to put an apt repository in /var/www/debian"
+echo "This script can do this for you, but a repo is more than 30"
+echo "gigabytes and will take eg. 3 days on a 1.5mb connection.  If you want a local"
+echo "repo you might want to do this by hand BEFORE running this script."
+echo "Hit Ctrl-C to quit, or <enter> to continue anyway..."
 read dummy_val
 
 echo "First we install required packages..."
 
 # FIXME: Need to check the below packages to see if all are still required.
 #        (Things have evolved quite quickly in this package).
-if apt-get install -y --allow-unauthenticated debian-keyring fusiondirectory-plugin-fai fusiondirectory-plugin-fai-schema fusiondirectory-plugin-argonaut fusiondirectory-plugin-argonaut-schema nfs-kernel-server fai-server syslinux libnet-libidn-perl libio-socket-ssl-perl libnet-ssleay-perl recode libnet-ldap-perl libconvert-asn1-perl hwinfo libhd16 ntp console-tools console-common console-data libconsole atftpd liblog-agent-perl liblockfile-simple-perl rsync debmirror libfuse-perl; then
+if apt-get install -y --allow-unauthenticated debian-keyring fusiondirectory-plugin-fai fusiondirectory-plugin-fai-schema fusiondirectory-plugin-argonaut fusiondirectory-plugin-argonaut-schema nfs-kernel-server fai-server syslinux libnet-libidn-perl libio-socket-ssl-perl libnet-ssleay-perl recode libnet-ldap-perl libconvert-asn1-perl hwinfo libhd16 ntp console-tools console-common console-data libconsole tftpd liblog-agent-perl liblockfile-simple-perl rsync debmirror libfuse-perl; then
 	echo "Installation of FAI prerequisite packages successful..."
 else
 	echo "Installation failed for FAI prerequisite packages.  Exiting..."
