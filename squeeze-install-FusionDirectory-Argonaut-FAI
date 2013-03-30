@@ -54,24 +54,23 @@ fi
 # We need to add the FAI schema to our LDAP directory
 fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/fai.schema
 
-apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai argonaut-fai-client argonaut-client-fai
-
-# FIXME: The next beta shouldn't require these bugfixes.
-sed -i 's@my (\$localuri) = \$uri =~ .*$@my (\$localuri) = \$uri;@' /usr/sbin/ldap2repository
+apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai argonaut-client-fai argonaut-server-module-fai
 
 if [ -f /etc/ldap/schema/fusiondirectory/fai.schema ]; then
 	echo "Adding schemas to LDAP tree..."
+	fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/fai.schema
 else
-	echo "The file /etc/ldap/schema/fusiondirectory/fai.schema does"        echo "not exist.  Something is very wrong.  Exiting..."        exit 1
+	echo "The file /etc/ldap/schema/fusiondirectory/fai.schema does"
+	echo "not exist.  Something is very wrong.  Exiting..."
+	exit 1
 fi
-fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/fai.schema
+
 # FIXME: Should any indexes be added here?
 /etc/init.d/slapd stop
 sudo -u openldap slapindex
 /etc/init.d/slapd start
 
 # FIXME: Should I restart the fd client and server daemons here?
-
 fusiondirectory-setup --update-cache --update-locales
 
 echo ""
@@ -106,8 +105,8 @@ echo "< *** IMPORTANT!!! *** read and complete the above, then hit enter >"
 read dummy_value
 
 ## FIXME: This is now configured in FD.  Should I mention these?
-# Configure the ldap2repository tool.  ldap2repository creates a cron job to
-# run debmirror daily using repo information in LDAP.
+# Configure the argonaut-repository tool.  argonaut-repository creates a cron
+# job to run debmirror daily using repo information in LDAP.
 # sed -i 's@mirrordir   = /srv/www/debian@mirrordir   = /var/www@' /etc/argonaut/argonaut.conf
 #
 # sed -i 's@verbose     = no@verbose     = yes@' /etc/argonaut/argonaut.conf
@@ -118,7 +117,7 @@ read dummy_value
 # sed -i 's@path            = /srv/www/debian@path            = /var/www/debian@' /etc/argonaut/argonaut.conf
 
 # Generate cron job for debmirror
-/usr/sbin/ldap2repository
+/usr/sbin/argonaut-repository
 
 # We need to restart argonaut-server to generate a package list from
 # our repository...  otherwise we have to wait 24 hours.
