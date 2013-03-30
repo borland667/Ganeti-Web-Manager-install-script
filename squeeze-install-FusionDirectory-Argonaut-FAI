@@ -1,21 +1,35 @@
 #!/bin/bash
 # Shell script to install FAI managed by Fusion Directory
 # FIXME: Not quite working
-if [ "$USER" != "root" ]; then        echo "Must be root to execute script..."        exit 1
+if [ "$USER" != "root" ]; then
+  echo "Must be root to execute script..."     
+  exit 1
 fi
 
 # FIXME: prerequisite scripts (we should test these have run :
 # squeeze-install-FusionDirectory
-if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then  echo "Run the squeeze-install-FusionDirectory script.  Fusion Directory must be"  echo "installed and configured before we can continue..."  exit 1
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory script.  Fusion Directory must be"
+  echo "installed and configured before we can continue..."
+  exit 1
 fi
 # squeeze-install-FusionDirectory-plugin-DHCP
-if [ ! -f /etc/dhcp/dhcpd.conf ]; then  echo "Run the squeeze-install-FusionDirectory-plugin-DHCP script.  DHCPd"  echo "must be installed and configured before we can continue..."  exit 1
+if [ ! -f /etc/dhcp/dhcpd.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory-plugin-DHCP script.  DHCPd"
+  echo "must be installed and configured before we can continue..."
+  exit 1
 fi
 # squeeze-install-FusionDirectory-plugin-DNS
-if [ ! -f /etc/default/ldap2zone ]; then  echo "Run the squeeze-install-FusionDirectory-plugin-DNS script.  Bind9"  echo "must be installed and configured before we can continue..."  exit 1
+if [ ! -f /etc/default/ldap2zone ]; then
+  echo "Run the squeeze-install-FusionDirectory-plugin-DNS script.  Bind9"
+  echo "must be installed and configured before we can continue..."
+  exit 1
 fi
 # squeeze-install-FusionDirectory-Argonaut
-if [ ! -f /etc/argonaut/argonaut.conf ]; then  echo "Run the squeeze-install-FusionDirectory-Argonaut script."  echo "Argonaut must be installed and configured before we can continue."  exit 1
+if [ ! -f /etc/argonaut/argonaut.conf ]; then
+  echo "Run the squeeze-install-FusionDirectory-Argonaut script."
+  echo "Argonaut must be installed and configured before we can continue."
+  exit 1
 fi
 
 echo ""
@@ -45,12 +59,12 @@ apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsr
 # FIXME: The next beta shouldn't require these bugfixes.
 sed -i 's@my (\$localuri) = \$uri =~ .*$@my (\$localuri) = \$uri;@' /usr/sbin/ldap2repository
 
-if [ -f /etc/ldap/schema/fusiondirectory/fai.ldif ]; then
+if [ -f /etc/ldap/schema/fusiondirectory/fai.schema ]; then
 	echo "Adding schemas to LDAP tree..."
 else
-	echo "The file /etc/ldap/schema/fusiondirectory/fai.ldif does"        echo "not exist.  Something is very wrong.  Exiting..."        exit 1
+	echo "The file /etc/ldap/schema/fusiondirectory/fai.schema does"        echo "not exist.  Something is very wrong.  Exiting..."        exit 1
 fi
-ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/fai.ldif
+fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/fai.schema
 # FIXME: Should any indexes be added here?
 /etc/init.d/slapd stop
 sudo -u openldap slapindex
