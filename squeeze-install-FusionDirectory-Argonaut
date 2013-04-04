@@ -27,7 +27,7 @@ do
 
   if [ $REPO_CHOICE -eq 1 ]; then
     if [ ! -f /etc/apt/sources.list.d/argonaut.list ]; then
-      echo "deb http://`hostname --fqdn`/argonaut-beta/ squeeze main" > /etc/apt/sources.list.d/argonaut.list
+      echo "deb http://`hostname --fqdn`/argonaut-beta/ wheezy main" > /etc/apt/sources.list.d/argonaut.list
     fi
   fi
 

@@ -65,17 +65,17 @@ if [ $make_repo = 1 ]; then
   mkdir -p $repo_dir/conf
   mkdir $repo_dir/override
   
-  touch $repo_dir/conf/override.squeeze
+  touch $repo_dir/conf/override.wheezy
   
   cat > $repo_dir/conf/distributions <<-EOF
 	Origin: $repo_origin
 	Label: $repo_label
-	Codename: squeeze
+	Codename: wheezy
 	Architectures: i386 amd64 source
 	Components: main
 	Description: $repo_description
-	DebOverride: override.squeeze
-	DscOverride: override.squeeze
+	DebOverride: override.wheezy
+	DscOverride: override.wheezy
 	DebIndices: Packages Release . .gz .bz2
 	UDebIndices: Packages . .gz .bz2
 	DscIndices: Sources Release .gz .bz2
@@ -83,5 +83,5 @@ if [ $make_repo = 1 ]; then
 EOF
   
   cd $repo_dir
-  reprepro includedeb squeeze $builddir/argonaut/*.deb
+  reprepro includedeb wheezy $builddir/argonaut/*.deb
 fi

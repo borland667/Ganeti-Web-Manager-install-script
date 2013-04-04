@@ -20,7 +20,7 @@ if [ ! -f /etc/dhcp/dhcpd.conf ]; then
   exit 1
 fi
 # squeeze-install-FusionDirectory-plugin-DNS
-if [ ! -f /etc/default/ldap2zone ]; then
+if [ ! -f /usr/sbin/argonaut-ldap2zone ]; then
   echo "Run the squeeze-install-FusionDirectory-plugin-DNS script.  Bind9"
   echo "must be installed and configured before we can continue..."
   exit 1
@@ -76,27 +76,13 @@ fusiondirectory-setup --update-cache --update-locales
 echo ""
 echo "*** IMPORTANT!! You MUST complete the following before continuing ***"
 echo "You will need to let FusionDirectory know about at least one Debian"
-echo "mirror (using 'repository service' object/s"
-echo "1) You MUST create a server object in FusionDirectory to represent your"
-echo "   apt mirror (eg. ftp.debian.org) - NOTE: the dialog requires a MAC address,"
-echo "   BUT you can use a dummy value eg. 00:00:00:00:00:00.  Inside this server"
-echo "   object create a 'Repository service', and add a 'release' to it."
-echo "   Some example configuration values for a 'release':"
-echo "   Release: squeeze"
-echo "   URL: http://ftp.debian.org/debian"
-echo "   Sections: main (you may want 'contrib' and 'non-free' in here also)"
-echo "   Leave 'Parent server' blank - this is a setting for hosting your own"
-echo "   mirror."
-echo "2) Optionally, if you want to host your own apt mirror :"
-echo "   a) On the server object representing THIS machine : create another"
-echo "   repository service with the external server as its parent. Populate"
-echo "   'Release' and 'Sections' as above, and a valid URL for this machine ie.:"
-echo "   http://"`hostname --fqdn`"/debian"
-echo "   b) Add an 'Argonaut mirror settings' service.  Be sure to change"
-echo "   'Local debian mirror directory' to '/var/www' .  Other defaults should"
-echo "   be OK (unless you have special requirements)."
-echo "   c) Add an 'Argonaut server' service."
-echo "   d) Add an 'Argonaut fuse' service."
+echo "mirror."
+echo "1) On your server machine create a 'Debian repository' service, and add an"
+echo "   upstream apt mirror to it (eg. ftp.debian.org)."
+echo "1a)If you want to create a local mirror add where you'll put this also."
+echo "2) If you are creating a local Debian mirror add 'Argonaut Mirror service'."
+echo "   Your mirror directory should be '/var/www'.  Other defaults are OK."
+echo "3) Add an argonaut-fuse service and enable FAI settings.  Defaults are OK."
 echo "After you have made these changes an APT repository will be built using"
 echo "this information.  This process will take a LONG time (if you haven't"
 echo "already pre-populated /var/www/debian) as it requires over 30gb to download"
@@ -123,17 +109,6 @@ read dummy_value
 # our repository...  otherwise we have to wait 24 hours.
 /etc/init.d/argonaut-server stop
 /etc/init.d/argonaut-server start
-
-# FIXME: This once was required, but probably isn't now.  Leave until confirmed.
-## Below we read your servers default interface.  This is used by
-## ldap2repository to look up your servers mac address, and this in turn helps
-## the script look up the LDAP record for this server which contains the
-## repository information entered into LDAP just before.
-#HOST_IP=`hostname --ip`
-#net_interface=`ifconfig | awk '/^[a-z]/ { I=$1}; /'$HOST_IP'/ {print(I)}'`
-#sed -i 's@^interface.*=.*$@interface   = '$net_interface'@' /etc/argonaut/argonaut.conf
-#sed -i 's@^server_ip.*= .*$@server_ip   = '$HOST_IP'@' /etc/argonaut/argonaut.conf
-
 # We also need an Apache configuration to make this repository accessible.
 cat > /etc/apache2/sites-available/debmirror <<-EOF
 	# Include Fusion Directory to your web service
@@ -152,8 +127,7 @@ a2ensite debmirror
 gpg --list-keys
 gpg --keyring /usr/share/keyrings/debian-archive-keyring.gpg --export | gpg --no-default-keyring --keyring trustedkeys.gpg --import
 
-# The cron script to create the mirror lives in /etc/argonaut/fai/ .
-# FIXME: Are default permissions OK for this file?
+# FIXME: does restarting the argonaut server really start a download happening?
 # !!!DOWNLOADING WILL PROBABLY TAKE A LOOOOOONG TIME IF YOU START FROM SCRATCH!!!
 echo ""
 echo "Do you want to update a local repository now? You can do this later by"
@@ -163,86 +137,26 @@ echo "NOTE: This step isn't required if you didn't configure a local"
 echo "repository."
 echo "Run mirror-update? y or n, then hit <enter> to continue..."
 read repo_choice
-if [ ! "$repo_choice" = "n" ]; then 
-	sh /etc/argonaut/fai/mirror-update-cronjob
+if [ ! "$repo_choice" = "n" ]; then
+	/etc/init.d/argonaut-server stop
+        /etc/init.d/argonaut-server start
 fi
 
-# After installing these packages a number of different Fusion Directory
-# services can be added to server objects.  GOto is the general client
-# management framework and enables lots of additional things in the Fusion
-# Directory interface.  In addition to FAI it can manage thin clients, desktops
-# and servers.
-# NOTE: The Linux desktop side of the goto agents is oriented towards KDE.
-
-# The following services will now be available :
-# --------------------------------
-# File service (Shares)
-# Kiosk profile service
-# LDAP service - required or FAI
-# Print service
-# Repository service - required for FAI
-# Syslog server
-# Syslog service database
-# Terminal service
-# Time service (NTP) - required for FAI
-# --------------------------------
-# ::There are also several new icons.
-# : In "My account" :
-# Environment
-# : In "Administration" :
-# Applications
-# Mime types
-# Hotplug devices
-# Software deployment
-# : In "Addons" :
-# Deployment Status
-
-## FIXME: This is probably no longer required.  Commented out for now.
-# Edit [FAI] section and [LDAP] sections in /etc/argonaut-fuse/argonaut-fuse.conf
-# sed -i 's@#\[FAI\]@\[FAI\]@' /etc/argonaut/argonaut-fuse.conf
-# FIXME: The following doc doesn't seem to work.  Why?
-# To debug FAI you can add "createvt" and "sshd" to fai_flags.  This will
-# allow sshing to the client during installation, and creation of an
-# interactive virtual terminal.  See fai-chboot for documentation on other
-# flags.
-# sed -i 's@#fai_flags=verbose,syslogd,reboot vga=0@fai_flags=verbose,syslogd,reboot vga=0@' /etc/argonaut/argonaut-fuse.conf
-# sed -i 's@#nfs_opts=@nfs_opts=@' /etc/argonaut/argonaut-fuse.conf
-# sed -i 's@#nfs_root=/srv/fai/nfsroot@nfs_root=/srv/fai/nfsroot@' /etc/argonaut/argonaut-fuse.conf
-# sed -i 's@#union=aufs@union=aufs@' /etc/argonaut/argonaut-fuse.conf
-
-# ...and in the [LDAP] section :
-# FIXME: What auth_dn do we need to set here, and do we need to
-# modify the argonaut-fuse.conf file permissions for security purposes.
-# I THINK this is set only if auths are required for LDAP connections(???)
-# Benoit sets this to the LDAP admin user/pass, so that's what I've done.
-# We first get our admin dn and password from fusiondirectory.conf (these vars
-# are also used later in the script) :
-LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
-echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
-LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
-echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
-
-# ...then configure our Argonaut-fuse server to bind to LDAP as admin.
-sed -i 's@^dn=@dn='$LDAP_ADMIN_DN'@' /etc/argonaut/argonaut-fuse.conf
-sed -i '0,/password/s@^password=@password='$LDAP_ADMIN_PW'@' /etc/argonaut/argonaut-fuse.conf
-
-# We now edit /etc/fai/make-fai-nfsroot.conf and change some variables :
+# We now edit /etc/fai/nfsroot.conf and change some variables :
 #-----------------------------------------------------------
 # FAI_DEBOOTSTRAP - name of Debian distro and repo we want our NFSROOT to be
 #                   built from.
 
+# FIXME: Need to make this conditional on if we have a local mirror or not.
 # When our clients netboot they need to know where to pull their packages from
-sed -i 's@FAI_DEBOOTSTRAP=".*"@FAI_DEBOOTSTRAP="squeeze http://'`hostname --fqdn`'/debian"@' /etc/fai/make-fai-nfsroot.conf
+#sed -i 's@FAI_DEBOOTSTRAP=".*"@FAI_DEBOOTSTRAP="squeeze http://'`hostname --fqdn`'/debian"@' /etc/fai/make-fai-nfsroot.conf
 # FIXME: If we have a local argonaut-beta repo this should be here too.
 # We need make-fai-nfsroot to do some extra FusionDirectory-specific steps eg.
 # copy configuration from LDAP etc...  A hook script to do this has been
-# placed in /etc/fai/nfsroot-hooks, and we uncomment the NFSROOT_HOOKS
-# option so make-fai-nfsroot will scan this directory for hook scripts.
-sed -i 's@#NFSROOT_HOOKS=@NFSROOT_HOOKS=@' /etc/fai/make-fai-nfsroot.conf
+# placed in /etc/fai/nfsroot-hooks.
+sed -i 's@TFTPROOT=/srv/tftp/fai@TFTPROOT=/tftpboot/pxelinux/linux@' /etc/fai/nfsroot.conf
 
-sed -i 's@TFTPROOT=/srv/tftp/fai@TFTPROOT=/srv/tftp@' /etc/fai/make-fai-nfsroot.conf
-
-## Extra make-fai-nfsroot options which you may find useful :
+## Extra nfsroot.conf options which you may find useful :
 # NFSROOT_ETC_HOSTS - This is /etc/hosts style entry/s containing host/s
 # important for client machines eg. the Debian mirror, Beowulf master 
 # node addrs etc...  This variable can contain multiple lines if required.
@@ -259,21 +173,21 @@ sed -i 's@TFTPROOT=/srv/tftp/fai@TFTPROOT=/srv/tftp@' /etc/fai/make-fai-nfsroot.
 echo ""
 echo "Please enter a root password for use on FAI clients : "
 read client_root_pw
-sed -i "s@\$1\$.*\'@"`echo $client_root_pw | mkpasswd -Hmd5 -s`"'@" /etc/fai/make-fai-nfsroot.conf
+sed -i "s@\$1\$.*\'@"`echo $client_root_pw | mkpasswd -Hmd5 -s`"'@" /etc/fai/nfsroot.conf
 
 #-------------------------------------------------------------
 
-# make-fai-nfsroot needs a sources.list file to install.
+# nfsroot needs a sources.list file to install.
 # FIXME: At the moment I need a combination of TWO FusionDirectory repos.
 #        Delete later and either make a local FusionDirectory repo, or some
 #        other solution.
 #        NOTE:: My local repo only has 'main', not 'contrib' or 'non-free'
 #               Change this?
-sed -i 's@deb http://.*/debian .*$@deb http://'`hostname --fqdn`'/debian squeeze main\
+sed -i 's@deb http://.*/debian .*$@deb http://'`hostname --fqdn`'/debian wheezy main\
 '"`grep ^deb.*$ /etc/apt/sources.list.d/argonaut.list`"'\
 deb http://repos.fusiondirectory.org/debian/ stable main@' /etc/fai/apt/sources.list
 # FIXME: Perhaps we should also cache the debian security website?
-sed -i 's@deb http://.*/debian-security .*$@deb http://security.debian.org/ squeeze/updates main@' /etc/fai/apt/sources.list
+sed -i 's@deb http://.*/debian-security .*$@deb http://security.debian.org/ wheezy/updates main@' /etc/fai/apt/sources.list
 
 # /etc/fai/NFSROOT contains instructions for building the root filesystem the
 # FAI client systems will use.  We've added the non-free Broadcom firmware
@@ -286,9 +200,9 @@ sed -i 's@liblinux-lvm-perl@liblinux-lvm-perl\
 rsyslog dialog gawk bind9-host libpci2 ldap-utils\
 vim psmisc debootstrap@' /etc/fai/NFSROOT
 sed -i 's@# needed for the simple examples@# needed for the Fusion Directory integration@' /etc/fai/NFSROOT
-# FIXME: Note: we install both argonaut-client-fai and argonaut-fai-client.  I don't think Benoit intended
+# FIXME: Note: we install both argonaut-client-fai and argonaut-client.  I don't think Benoit intended
 #              for this to be required, so this may change in future.
-sed -i 's@cfengine2 libapt-pkg-perl@reprepro libdatetime-perl locales-all gettext argonaut-common argonaut-client-fai argonaut-fai-client# argonaut-fai-progress\
+sed -i 's@cfengine2 libapt-pkg-perl@reprepro libdatetime-perl locales-all gettext argonaut-common argonaut-client-fai argonaut-client# argonaut-fai-progress\
 \
 # needed for non-free broadcom firmware\
 firmware-bnx2@' /etc/fai/NFSROOT
@@ -331,14 +245,10 @@ ln -s /etc/ldap/ldap.conf /etc/ldap/ldap-fai.conf
 # FIXME: I guess this is related to the above?  Perhaps this should be default
 #        not explicitly required?
 # We need make-fai-nfsroot to copy an LDAP configuration to our FAI client.
-echo "FAI_LDAP=/etc/ldap/ldap.conf" >> /etc/fai/make-fai-nfsroot.conf
+echo "FAI_LDAP=/etc/ldap/ldap.conf" >> /etc/fai/nfsroot.conf
 
 # Change source of config to argonaut/LDAP
 sed -i 's@#FAI_CONFIG_SRC=nfs://yourservername/path/to/config/space@FAI_CONFIG_SRC=argonaut:///tmp/fai-ldap/1DF4Yu@' /etc/fai/fai.conf
-
-# FIXME: This SHOULD get fixed soon...  remove this once it happens.
-#        ie. client being configured to use eth1 instead of eth0
-sed -i 'N;/client_port = 8081\ninterface   = eth1/s/interface   = eth1/interface  = eth0/;P;D' /etc/argonaut/argonaut.conf
 
 echo "Which architecture do FAI clients use:"
 echo "1) Same as the server [default]"
@@ -347,8 +257,8 @@ echo "3) amd64"
 echo "Enter your choice..."
 read ARCHITECTURE
 if [ "$ARCHITECTURE" = "1" ]; then    echo "Going with default..."
-elif [ "$ARCHITECTURE" = "2" ]; then    sed -i 's@FAI_DEBOOTSTRAP_OPTS="@FAI_DEBOOTSTRAP_OPTS="--arch=i386 @' /etc/fai/make-fai-nfsroot.conf
-elif [ "$ARCHITECTURE" = "3" ]; then    sed -i 's@FAI_DEBOOTSTRAP_OPTS="@FAI_DEBOOTSTRAP_OPTS="--arch=amd64 @' /etc/fai/make-fai-nfsroot.conf
+elif [ "$ARCHITECTURE" = "2" ]; then    sed -i 's@FAI_DEBOOTSTRAP_OPTS="@FAI_DEBOOTSTRAP_OPTS="--arch=i386 @' /etc/fai/nfsroot.conf
+elif [ "$ARCHITECTURE" = "3" ]; then    sed -i 's@FAI_DEBOOTSTRAP_OPTS="@FAI_DEBOOTSTRAP_OPTS="--arch=amd64 @' /etc/fai/nfsroot.conf
 fi
 
 
@@ -479,27 +389,6 @@ LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | grep 
 LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }'`
 LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
 
-# FIXME: We should break this into two parts in case ou=fai already
-#        exists and breaks the ldapadd...  we'll still want
-#        ou=squeeze to be added in any case.  Also we should do
-#        the add using a different method (see other scripts).
-cat > /tmp/fai-ldap-objects.ldif  <<-EOF
-	dn: ou=fai,ou=configs,ou=systems,$LDAP_BASE_DN
-	objectclass: organizationalUnit
-	objectclass: top
-	ou: fai
-	
-	dn: ou=squeeze,ou=fai,ou=configs,ou=systems,$LDAP_BASE_DN
-	objectclass: organizationalUnit
-	objectclass: top
-	objectclass: FAIbranch
-	ou: squeeze
-EOF
-
-# -x - use simple authentication instead of SASL FIXME: Does this make a difference?
-#ldapadd -H <ldap uri> -x -D <binddn> -w <passwd> -f /tmp/new-ldap-user.ldif
-ldapadd -H ldaps://127.0.0.1:636 -x -D $LDAP_ADMIN_DN -w $LDAP_ADMIN_PW -f /tmp/fai-ldap-objects.ldif
-
 # FIXME: This should be configurable in a future version of argonaut-fuse.  Delete this section when it is.
 BOOT_CHOICE=0
 while [ $BOOT_CHOICE -lt 1 ] || [ $BOOT_CHOICE -gt 3 ]
@@ -537,7 +426,7 @@ done
 # been built.  (It should take around 5-10 minutes).
 
 /etc/init.d/argonaut-server restart
-/etc/init.d/argonaut-client-management restart
+/etc/init.d/argonaut-client restart
 
 # We need to refresh "argonaut-fuse" ie. the daemon
 # that populates the pxelinux.cfg directory for tftp.
@@ -553,12 +442,6 @@ sed -i 's@copyPaste="false"@copyPaste="true"@' /etc/fusiondirectory/fusiondirect
 # FIXME: The apache restart is probably is not required, but I've put it in anyway.  Find out one way or the other.
 fusiondirectory-setup --update-cache --update-locales
 /etc/init.d/apache2 restart
-
-# FIXME: This bug patch won't need to be applied in the next version
-#        (in Aug 2012)
-cd /tmp
-wget https://forge.fusiondirectory.org/attachments/download/671/0001-Fixes-1160-Failed-to-add-packages-in-Package-list-di.patch
-patch /usr/share/fusiondirectory/plugins/admin/fai/class_faiPackage.inc 0001-Fixes-1160-Failed-to-add-packages-in-Package-list-di.patch 
 
 # FIXME: We need to give some further instruction on using FAI /w Fusion
 #        Directory here.
