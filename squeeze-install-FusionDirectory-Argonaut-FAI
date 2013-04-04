@@ -51,9 +51,6 @@ else
 	exit 1
 fi
 
-# We need to add the FAI schema to our LDAP directory
-fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/fai.schema
-
 apt-get install -y --allow-unauthenticated argonaut-fai-mirror argonaut-fai-nfsroot argonaut-fuse argonaut-fuse-fai argonaut-client-fai argonaut-server-module-fai
 
 if [ -f /etc/ldap/schema/fusiondirectory/fai.schema ]; then
@@ -73,34 +70,42 @@ sudo -u openldap slapindex
 # FIXME: Should I restart the fd client and server daemons here?
 fusiondirectory-setup --update-cache --update-locales
 
+echo "Where should we get Debian packages from?"
+echo "1) Remotely, downloading every time."
+echo "2) Setting up a local apt proxy (not yet an option), or"
+echo "3) Set up a full local apt mirror (this will require 30gb download)."
+echo "Please type your choice and it enter:"
+read package_download
+
+if [ "$package_download" -eq 1 -o "$package_download" -eq 3 ]; then
+	echo "All good..."
+else
+	echo "You need to choose a valid option..."
+	exit 1
+fi
+
 echo ""
 echo "*** IMPORTANT!! You MUST complete the following before continuing ***"
 echo "You will need to let FusionDirectory know about at least one Debian"
 echo "mirror."
 echo "1) On your server machine create a 'Debian repository' service, and add an"
 echo "   upstream apt mirror to it (eg. ftp.debian.org)."
-echo "1a)If you want to create a local mirror add where you'll put this also."
-echo "2) If you are creating a local Debian mirror add 'Argonaut Mirror service'."
-echo "   Your mirror directory should be '/var/www'.  Other defaults are OK."
-echo "3) Add an argonaut-fuse service and enable FAI settings.  Defaults are OK."
-echo "After you have made these changes an APT repository will be built using"
-echo "this information.  This process will take a LONG time (if you haven't"
-echo "already pre-populated /var/www/debian) as it requires over 30gb to download"
-echo "from the Internet to /var/www/debian.  Be sure you have sufficient space!"
+if [ "$package_download" eq 3 ]; then
+	echo "1a)Add the location of your local mirror here also, ie.:"
+	echo "http://"`hostname --fqdn`"/debian"
+fi
+echo "2) Add an argonaut-fuse service and enable FAI settings.  Defaults are OK."
+if [ "$package_download" eq 3 ]; then
+	echo "3) Add an 'Argonaut Mirror service'."
+	echo "   Your mirror directory should be '/var/www'.  Other defaults are OK."
+	echo "After you have made these changes an APT repository will be built using"
+	echo "this information.  This process will take a LONG time (if you haven't"
+	echo "already pre-populated /var/www/debian) as it requires over 30gb to download"
+	echo "from the Internet to /var/www/debian.  Be sure you have sufficient space!"
+fi
+
 echo "< *** IMPORTANT!!! *** read and complete the above, then hit enter >"
 read dummy_value
-
-## FIXME: This is now configured in FD.  Should I mention these?
-# Configure the argonaut-repository tool.  argonaut-repository creates a cron
-# job to run debmirror daily using repo information in LDAP.
-# sed -i 's@mirrordir   = /srv/www/debian@mirrordir   = /var/www@' /etc/argonaut/argonaut.conf
-#
-# sed -i 's@verbose     = no@verbose     = yes@' /etc/argonaut/argonaut.conf
-# sed -i 's@cleanup     = no@cleanup     = yes@' /etc/argonaut/argonaut.conf
-
-# This path will be used to generate a package list from our mirror for the
-# FusionDirectory FAI/Deployment GUI.
-# sed -i 's@path            = /srv/www/debian@path            = /var/www/debian@' /etc/argonaut/argonaut.conf
 
 # Generate cron job for debmirror
 /usr/sbin/argonaut-repository
@@ -109,6 +114,7 @@ read dummy_value
 # our repository...  otherwise we have to wait 24 hours.
 /etc/init.d/argonaut-server stop
 /etc/init.d/argonaut-server start
+
 # We also need an Apache configuration to make this repository accessible.
 cat > /etc/apache2/sites-available/debmirror <<-EOF
 	# Include Fusion Directory to your web service
@@ -194,18 +200,11 @@ sed -i 's@deb http://.*/debian-security .*$@deb http://security.debian.org/ whee
 # to the list of packages to be installed. We also install a few extra Fusion
 # Directory related packages which allow (for example) argonaut-fai-client for
 # pulling FAI configuration from LDAP instead of an NFS filesystem on the
-# server.  I've left argonaut-progress commented out for debugging purposes.
-# This package adds a FAI progress bar, and hides what's happening.
-sed -i 's@liblinux-lvm-perl@liblinux-lvm-perl\
+# server.
+sed -i 's@lvm2@lvm2\
 rsyslog dialog gawk bind9-host libpci2 ldap-utils\
-vim psmisc debootstrap@' /etc/fai/NFSROOT
-sed -i 's@# needed for the simple examples@# needed for the Fusion Directory integration@' /etc/fai/NFSROOT
-# FIXME: Note: we install both argonaut-client-fai and argonaut-client.  I don't think Benoit intended
-#              for this to be required, so this may change in future.
-sed -i 's@cfengine2 libapt-pkg-perl@reprepro libdatetime-perl locales-all gettext argonaut-common argonaut-client-fai argonaut-client# argonaut-fai-progress\
-\
-# needed for non-free broadcom firmware\
-firmware-bnx2@' /etc/fai/NFSROOT
+vim psmisc debootstrap reprepro libdatetime-perl locales-all gettext\
+argonaut-common argonaut-client-fai argonaut-client@' /etc/fai/NFSROOT
 
 SERVER_IP=`hostname --ip-address`
 
@@ -264,7 +263,7 @@ fi
 
 # Create fai NFSROOT.  Run with -v for verbose output.
 make-fai-nfsroot -v
-# Log file written to /var/log/fai/make-fai-nfsroot.log
+# Log file written to /var/log/fai/fai-make-nfsroot.log
 
 # We need to NFS-export filesystems required by FAI
 # FIXME: I've read NFS filesystems should have their own partition for security.
@@ -295,11 +294,8 @@ exportfs -a
 #        ldifs instead of generic examples from fai-doc.
 apt-get install fai-doc
 
-# FIXME : This is probably no longer required.  Check to be sure, then delete this note.
-#cp /usr/lib/syslinux/pxelinux.0 /srv/tftp/
-
-mkdir /srv/tftp/pxelinux.static
-cat > /srv/tftp/pxelinux.static/default <<-EOF
+mkdir /tftpboot/pxelinux/linux/pxelinux.static
+cat > /tftpboot/pxelinux/linux/pxelinux.static/default <<-EOF
 	#generated by hand for all hosts without FD config
 	default hand-generated
 	label hand-generated
@@ -428,17 +424,12 @@ done
 /etc/init.d/argonaut-server restart
 /etc/init.d/argonaut-client restart
 
-# We need to refresh "argonaut-fuse" ie. the daemon
-# that populates the pxelinux.cfg directory for tftp.
-#FIXME: shouldn't need to create this dir...  remove when fixed :
-mkdir /srv/fai/pxelinux.cfg
-
 /etc/init.d/argonaut-fuse stop
-umount /srv/fai/pxelinux.cfg
+umount /tftpboot/pxelinux/linux/pxelinux.cfg
 /etc/init.d/argonaut-fuse start
 
-# FIXME: In Fusion Directory 2.6.7 this is suddenly required...  is it a bug?
-sed -i 's@copyPaste="false"@copyPaste="true"@' /etc/fusiondirectory/fusiondirectory.conf
+## FIXME: In Fusion Directory 2.6.7 this is suddenly required...  is it a bug?
+#sed -i 's@copyPaste="false"@copyPaste="true"@' /etc/fusiondirectory/fusiondirectory.conf
 # FIXME: The apache restart is probably is not required, but I've put it in anyway.  Find out one way or the other.
 fusiondirectory-setup --update-cache --update-locales
 /etc/init.d/apache2 restart
