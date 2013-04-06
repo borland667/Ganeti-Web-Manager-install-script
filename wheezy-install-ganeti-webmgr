@@ -1,0 +1,112 @@
+#!/bin/bash
+# We must run this script as root
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# Check for valid IP.  Warn if only configured to 127.0.x.x
+my_fqdn=`hostname -f`
+my_host_ip=`grep $my_fqdn /etc/hosts | awk '{ print $1 }'`
+echo ""
+echo "Your fully qualified hostname is "$my_fqdn
+echo "and your IP is "$my_host_ip
+if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
+	echo ""
+	echo "You should really make your hostname resolve to a valid network IP."
+	echo "This is required for many web apps and is generally a good idea."
+	echo "To do this:"
+	echo "1) edit your /etc/hosts file and make sure your hostname"
+	echo "   resolves to an IP other than 127.x.x.x"
+	echo "2) Your /etc/network/interfaces will need to match. eg. :"
+	echo "   iface eth0 inet static"
+	echo "     address 192.168.1.120"
+	echo "     netmask 255.255.255.0"
+	echo "     gateway 192.168.1.1"
+	echo "To make this take effect : killall dhclient;ifdown eth0;ifup eth0"
+	echo "'Ctrl-C' to exit or hit <enter> to continue..."
+	read my_dummy_value 
+fi
+
+apt-get install python-pip python-dev python-virtualenv python-paramiko memcached python-memcache libapache2-mod-wsgi
+# FIXME: should I "pip install python-memcached" instead of apt-get?
+pip install fabric
+
+cd /var/lib
+git clone git://git.osuosl.org/gitolite/ganeti/ganeti_webmgr
+cd ganeti_webmgr/
+fab prod deploy
+source bin/activate
+cp settings.py.dist settings.py
+./manage.py syncdb --migrate
+./manage.py rebuild_index
+#./manage.py runserver
+
+# On this distro the apache user is www-data
+chown -R www-data.www-data whoosh_index/
+
+# Memcached or similar cache daemon is recommended for a production server.
+cat >> /var/lib/ganeti_webmgr/settings.py <<-EOF
+	
+	# Use memcached for production
+	CACHES = {
+	    'default': {
+	        'BACKEND': 'django.core.cache.backends.memcached.MemcachedCache',
+	        'LOCATION': '127.0.0.1:11211',
+	    }
+	}
+EOF
+
+#    Change your SECRET_KEY and WEB_MGR_API_KEY to unique (and hopefully unguessable) strings in your settings.py.
+sed -i 's@^SECRET_KEY =.*$@SECRET_KEY = '\'`openssl rand -base64 30|tr -dc _A-Z-a-z-0-9`\''@' ./settings.py
+sed -i 's@^WEB_MGR_API_KEY =.*$@WEB_MGR_API_KEY = '\'`openssl rand -base64 30|tr -dc _A-Z-a-z-0-9`\''@' ./settings.py
+
+# Apparently a full rather than a relative path is required here...
+sed -i 's@templates/@/var/lib/ganeti_webmgr/ganeti_web/templates/@' ./settings.py
+
+#    Ensure the server has the ability to send emails or you have access to an SMTP server. Set ``EMAIL_HOST``, ``EMAIL_PORT``, and ``DEFAULT_FROM_EMAIL`` in settings.py. For more complicated outgoing mail setups, please refer to the django email documentation.
+echo "We must ensure the server has the ability to send emails or you have"
+echo "access to an SMTP server.  You may need to refer to the django email"
+echo "documentation if you have a complicated setup."
+echo "Please enter your mail host:"
+read EMAIL_HOST
+echo "Please enter your email port (usually 25):"
+read EMAIL_PORT
+echo "Which address will email from the server appear to have come from?:"
+read DEFAULT_FROM_EMAIL
+sed -i 's@EMAIL_HOST =.*$@EMAIL_HOST = '\'$EMAIL_HOST\''@' /var/lib/ganeti_webmgr/settings.py
+sed -i 's@EMAIL_PORT =.*$@EMAIL_PORT = '\'$EMAIL_PORT\''@' /var/lib/ganeti_webmgr/settings.py
+sed -i 's@# DEFAULT_FROM_EMAIL =.*$@DEFAULT_FROM_EMAIL = '\'$DEFAULT_FROM_EMAIL\''@' /var/lib/ganeti_webmgr/settings.py
+
+a2enmod wsgi
+
+cat >> /var/lib/ganeti_webmgr/django.wsgi <<-EOF
+	import os
+	import sys
+	
+	path = '/var/lib/ganeti_webmgr'
+	
+	# activate virtualenv
+	activate_this = '%s/bin/activate_this.py' % path
+	execfile(activate_this, dict(__file__=activate_this))
+	
+	# add project to path
+	if path not in sys.path:
+	sys.path.append(path)
+	
+	# configure django environment
+	os.environ['DJANGO_SETTINGS_MODULE'] = 'settings'
+	
+	import django.core.handlers.wsgi
+	application = django.core.handlers.wsgi.WSGIHandler()
+EOF
+
+# Point Apache at Ganeti Web Manager
+cat > /etc/apache2/conf.d/ganeti_webmgr.conf <<-EOF
+	WSGIScriptAlias /ganeti_webmgr /var/lib/ganeti_webmgr/django.wsgi
+EOF
+
+#    Set VNC_PROXY to the hostname of your VNC AuthProxy server in settings.py. The VNC AuthProxy does not need to run on the same server as Ganeti Web Manager.
+sed -i 's@^VNC_PROXY=.*$@VNC_PROXY='\'`hostname --fqdn`\'':8888@' /var/lib/ganeti_webmgr/settings.py
+
+/etc/init.d/apache2 restart
