@@ -109,12 +109,12 @@ echo "You will need to let FusionDirectory know about at least one Debian"
 echo "mirror."
 echo "1) On your server machine create a 'Debian repository' service, and add an"
 echo "   upstream apt mirror to it (eg. ftp.debian.org)."
-if [ "$package_download" eq 3 ]; then
+if [ "$package_download" -eq 3 ]; then
 	echo "1a)Add the location of your local mirror here also, ie.:"
 	echo "http://"`hostname --fqdn`"/debian"
 fi
 echo "2) Add an argonaut-fuse service and enable FAI settings.  Defaults are OK."
-if [ "$package_download" eq 3 ]; then
+if [ "$package_download" -eq 3 ]; then
 	echo "3) Add an 'Argonaut Mirror service'."
 	echo "   Your mirror directory should be '/var/www'.  Other defaults are OK."
 	echo "After you have made these changes an APT repository will be built using"
@@ -445,6 +445,12 @@ done
 
 /etc/init.d/argonaut-fuse stop
 umount /tftpboot/linux/pxelinux.cfg
+echo "Add an 'Argonaut Fuse settings' service, using the following settings:"
+echo "Pxelinux cfg path: /tftpboot/linux/pxelinux.cfg"
+echo "Pxelinux cfg static path: /tftpboot/linux/pxelinux.static"
+echo "<Make this change, then hit enter to continue...>"
+read dummy
+
 /etc/init.d/argonaut-fuse start
 
 ## FIXME: In Fusion Directory 2.6.7 this is suddenly required...  is it a bug?
