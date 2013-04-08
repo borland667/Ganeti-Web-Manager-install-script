@@ -17,9 +17,11 @@ REPO_CHOICE=0
 while [ $REPO_CHOICE -lt 1 ] || [ $REPO_CHOICE -gt 2 ]
 do
   echo ""
-  echo "Which Argonaut repository will you be using? :"
-  echo "1) A local Argonaut repo (manually run argonaut-nightly.sh first!!!)"
-  echo "2) Benoits beta repo (can be out of date sometimes)"
+  echo "Because Argonaut is under heavy development we need to use a recent"
+  echo "version.  Which Argonaut repository will you be using? :"
+  echo "1) Newly compiled local repo (manually run argonaut-nightly.sh first!!!)"
+  echo "2) Benoits beta repo - not as up-to-the second as the above option,"
+  echo "   but still should only be weeks old"
 #  echo "3) ...a third choice..."
   echo ""
   echo "...enter the number of your choice :"
@@ -102,6 +104,9 @@ echo "You must :"
 echo "  * add an Argonaut server object to LDAP."
 echo "  * enable the Argonaut Client functionality (in the Argonaut Client tab)"
 echo "...you may have to log out and back in to get these options to appear."
+echo "NOTE: If you get a message about needing to set up encodings, go into"
+echo "the Configuration menu (under the Main menu) and simply edit/save the"
+echo "settings - this creates an Encodings configuration."
 #FIXME: Make better wording, and understand better.
 echo "< WHEN FINISHED hit enter to continue... >"
 read my_dummy_value

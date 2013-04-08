@@ -66,8 +66,8 @@ while [ $REPO_CHOICE -lt 1 ] || [ $REPO_CHOICE -gt 3 ]
 do
   echo ""
   echo "Which repository will you be using? :"
-  echo "1) The Fusion Directory Squeeze repository"
-  echo "2) The Fusion Directory development repository"
+  echo "1) The Fusion Directory Squeeze repository (stable)"
+  echo "2) The Fusion Directory development repository (bleeding edge)"
 #  echo "3) ...a third choice..."
   echo ""
   echo "...enter the number of your choice :"
@@ -114,7 +114,7 @@ apt-get update
 # our hosts domain name.  Just in case we want to set this to something
 # different we preconfigure slapd.
 echo ""
-echo "The next step is configuring the slapd LDAP server.  Please remember :"
+echo "The next step is LDAP server configuration.  You'll need to remember :"
 echo "1) The base dn you use for your LDAP directory (generated from the"
 echo "   domain name you input during the configuration)."
 echo "2) Your admin password"
