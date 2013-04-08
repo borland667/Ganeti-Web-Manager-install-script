@@ -661,7 +661,7 @@ echo "Port - 4190"
 echo "Option - tls"
 echo "In your Postfix service:"
 echo "FQDN (pretty obvious).  Not sure Domains are even required."
-## Old format for GOsa
+## Old format configuration details (historical, from GOsa)
 #echo "Port: "
 #echo "Server identifier - "`hostname --fqdn`
 #echo "Connect URL - {"`hostname --fqdn`":993/ssl/novalidate-cert}"
@@ -680,7 +680,6 @@ echo "FQDN (pretty obvious).  Not sure Domains are even required."
 # allocated for Cisco SCCP usage, according to the IANA registry[1].
 # FIXME: Why do we need to add a Postfix service into our Fusion Directory
 #        configuration?  Inform the user here.
-
 
 # FIXME: BIG PROBLEM!!!  Need to set an ACL so that a user typing ldapsearch -x won't
 # get the admin password in plain text. From the IRC channel eg. :
