@@ -646,11 +646,22 @@ chown cyrus.mail -R /var/spool/sieve/*
 echo "Successfully finished configuration..."
 echo ""
 echo "To activate Cyrus in Fusion Directory create both a Cyrus and Postfix"
-echo "service in your server-object.  In your Cyrus service:"
-echo "Most entries can be left blank, but the admin user will be fd-admin"
-echo "if you use the default."
+echo "service in your server-object."
+echo "Cyrus settings:"
+echo "Hostname - "`hostname --fqdn`
+echo "Port - 993"
+echo "Option - ssl"
+echo "Validate certificates - no-validate"
+echo "Admin user - fd-admin"
+echo "Password - <put your password here>"
+echo "Sieve Settings:"
+# FIXME: Is there still a need to have this weird hostname?
+echo "Hostname - 127.0.1.1"
+echo "Port - 4190"
+echo "Option - tls"
 echo "In your Postfix service:"
 echo "FQDN (pretty obvious).  Not sure Domains are even required."
+## Old format for GOsa
 #echo "Port: "
 #echo "Server identifier - "`hostname --fqdn`
 #echo "Connect URL - {"`hostname --fqdn`":993/ssl/novalidate-cert}"

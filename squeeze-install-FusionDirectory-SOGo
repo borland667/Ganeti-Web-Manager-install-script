@@ -192,15 +192,17 @@ a2ensite default-ssl
 /etc/init.d/sogo restart
 /etc/init.d/apache2 restart
 
+echo ""
+echo "Configuration in Fusion Directory:"
 echo "In Addons/Configuration/Mail (in Fusion Directory) add the following"
-echo "folders to autocreate : Trash, Send, Draft, Junk."
+echo "folders to autocreate : Junk, Sent, Drafts, Junk."
 echo "Also, make uid the Account identification attribute"
-echo "<Hit enter to continue...>"
+echo "<COMPLETE THE ABOVE, then hit enter to continue...>"
 read dummy
 
 echo ",------------------------------------------------------------------------------"
-echo "| SOGo SHOULD be running, although the default config might not be correct."
-echo "| Check config /home/sogo/GNUstep/Defaults/.GNUstepDefaults...  instructions"
+echo "| SOGo SHOULD be running, and the default config should be correct."
+echo "| Check config in /home/sogo/GNUstep/Defaults/.GNUstepDefaults...  instructions"
 echo "| on how to do this are on the SOGo website."
 echo "|" 
 echo "| After any config changes restart apache and start SOGo :"
