@@ -165,6 +165,7 @@ sudo -u sogo defaults write sogod OCSSessionsFolderURL postgresql://sogo:sogo@lo
 
 
 sudo -u sogo defaults write sogod SOGoAuthenticationMethod LDAP
+# FIXME: I added a semicolon after 'port=636'.  Is this correct?
 sudo -u sogo defaults write sogod SOGoUserSources '({CNFieldName = cn;
              IDFieldName = cn; UIDFieldName = uid; baseDN =
              "ou=people,'$LDAP_BASE_DN'";
@@ -172,7 +173,7 @@ sudo -u sogo defaults write sogod SOGoUserSources '({CNFieldName = cn;
 	     bindFields = uid; encryption = ssl;
              bindPassword = '$LDAP_ADMIN_PW'; canAuthenticate = YES; displayName =
              "Shared Addresses"; hostname = '$LDAP_HOSTNAME'; id = shared;
-             isAddressBook = YES; port=636})'
+             isAddressBook = YES; port=636;})'
 sudo -u sogo defaults write sogod SOGoProfileURL\
        'postgresql://sogo:'$POSTGRES_PW'@localhost:5432/sogo/sogo_user_profile'
 sudo -u sogo defaults write sogod OCSFolderInfoURL\
@@ -190,6 +191,12 @@ a2ensite default-ssl
 
 /etc/init.d/sogo restart
 /etc/init.d/apache2 restart
+
+echo "In Addons/Configuration/Mail (in Fusion Directory) add the following"
+echo "folders to autocreate : Trash, Send, Draft, Junk."
+echo "Also, make uid the Account identification attribute"
+echo "<Hit enter to continue...>"
+read dummy
 
 echo ",------------------------------------------------------------------------------"
 echo "| SOGo SHOULD be running, although the default config might not be correct."
