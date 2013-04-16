@@ -46,7 +46,7 @@ sed -i 's@RUN=no@RUN=yes@' /etc/default/prelude-correlator
 apt-get -y install snort
 sed -i 's@# output alert_prelude@output alert_prelude@' /etc/snort/snort.conf
 prelude-admin registration-server prelude-manager --passwd $PRELUDE_PW --no-confirm &
-prelude-admin register "prelude-lml" "idmef:w" 127.0.0.1 --uid snort --gid snort --passwd $PRELUDE_PW
+prelude-admin register "snort" "idmef:w" 127.0.0.1 --uid snort --gid snort --passwd $PRELUDE_PW
 
 /etc/init.d/snort restart
 
