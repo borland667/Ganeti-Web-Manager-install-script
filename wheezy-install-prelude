@@ -60,18 +60,18 @@ prelude-admin register "prelude-lml" "idmef:w" 127.0.0.1 --uid root --gid root -
 prelude-admin registration-server prelude-manager --passwd $PRELUDE_PW --no-confirm &
 prelude-admin register "prelude-correlator" "idmef:rw" 127.0.0.1 --uid prelude-correlator --gid prelude-correlator --passwd $PRELUDE_PW
 
+apt-get -y install prewikka libapache2-mod-python
+
 echo ""
 echo "You need to reenter the prelude database password (required for web GUI):"
 echo "<please enter the password, then press enter...>"
 read USER_PW
 
 sed -i 's@type: mysql@type: pgsql@' /etc/prewikka/prewikka.conf
-sed -i 's@pass: prelude@type: '$USER_PW'@' /etc/prewikka/prewikka.conf
+sed -i 's@pass: prelude@pass: '$USER_PW'@' /etc/prewikka/prewikka.conf
 
 /etc/init.d/prelude-correlator start
 /etc/init.d/prelude-lml start
-
-apt-get -y install prewikka libapache2-mod-python
 
 MY_HOSTNAME=`hostname --fqdn`
 cat > /etc/apache2/sites-available/prewikka <<-EOF
