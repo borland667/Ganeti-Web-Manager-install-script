@@ -48,6 +48,7 @@ sed -i 's@RUN=no@RUN=yes@' /etc/default/prelude-correlator
 PRELUDE_PW=`openssl rand -base64 30|tr -dc _A-Z-a-z-0-9`
 
 apt-get -y install snort
+
 sed -i 's@# output alert_prelude@output alert_prelude@' /etc/snort/snort.conf
 prelude-admin registration-server prelude-manager --passwd $PRELUDE_PW --no-confirm &
 prelude-admin register "snort" "idmef:w" 127.0.0.1 --uid snort --gid snort --passwd $PRELUDE_PW
@@ -61,6 +62,7 @@ prelude-admin registration-server prelude-manager --passwd $PRELUDE_PW --no-conf
 prelude-admin register "prelude-correlator" "idmef:rw" 127.0.0.1 --uid prelude-correlator --gid prelude-correlator --passwd $PRELUDE_PW
 
 apt-get -y install prewikka libapache2-mod-python
+# FIXME: configure mod python instead of CGI here?
 
 echo ""
 echo "You need to reenter the prelude database password (required for web GUI):"
