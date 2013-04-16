@@ -52,7 +52,7 @@ prelude-admin register "prelude-lml" "idmef:w" 127.0.0.1 --uid snort --gid snort
 
 # FIXME: Security risk, but a small one.  This one-time password will be visible in the
 #        clear to 'ps -aux' for a short time to local users.
-PRELUDE_PW = `openssl rand -base64 30|tr -dc _A-Z-a-z-0-9`
+PRELUDE_PW=`openssl rand -base64 30|tr -dc _A-Z-a-z-0-9`
 
 prelude-admin registration-server prelude-manager --passwd $PRELUDE_PW --no-confirm &
 prelude-admin register "prelude-lml" "idmef:w" 127.0.0.1 --uid root --gid root --passwd $PRELUDE_PW
