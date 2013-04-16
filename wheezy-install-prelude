@@ -99,3 +99,4 @@ service apache2 reload
 
 echo "The path to your Prelude web interface can be accessed from the following URL:"
 echo "https://"`hostname --fqdn`"/prelude/"
+echo "!!!CHANGE THE ADMIN PASSWORD!!!"
