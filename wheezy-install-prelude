@@ -36,17 +36,15 @@ echo "apt-get -y install rng-utils"
 echo "rngd -r /dev/urandom"
 echo "<hit enter to continue>"
 read DUMMY
-apt-get -y install prelude-manager prelude-lml prelude-correlator
+apt-get -y install prelude-manager prelude-lml prelude-correlator samhain
 
-apt-get install logcheck syslog-summary harden harden-clients harden-environment harden-servers checksecurity harden-tools samhain auditd
-audispd-plugins
+apt-get install -y logcheck syslog-summary harden harden-clients harden-environment harden-servers checksecurity harden-tools auditd audispd-plugins
 
 sed -i 's@^\[Log\]@\[Log\]\
   PreludeSeverity=crit\
   PreludeClass=EVENT@' /etc/samhain/samhainrc
 sed -i 's@^\[Misc\]@\[Misc\]\
   PreludeProfile=samhain@' /etc/samhain/samhainrc
-/etc/init.d/samhain restart
 
 sed -i 's@^active = no@active = yes\
 q_depth = 1024\
@@ -104,6 +102,7 @@ sed -i 's@pass: prelude@pass: '$USER_PW'@' /etc/prewikka/prewikka.conf
 
 /etc/init.d/prelude-correlator start
 /etc/init.d/prelude-lml start
+/etc/init.d/auditd restart
 
 MY_HOSTNAME=`hostname --fqdn`
 cat > /etc/apache2/sites-available/prewikka <<-EOF
