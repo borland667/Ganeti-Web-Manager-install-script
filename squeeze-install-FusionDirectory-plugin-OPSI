@@ -61,9 +61,6 @@ if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
 	exit 1
 fi
 
-# FIXME: This directory isn't automatically installed for me.
-mkdir /opt/pcbin
-
 # Add the Squeeze OPSI repo
 grep -q "http://download.opensuse.org/repositories/home:/uibmz:/opsi:/opsi40/Debian_6.0 ./" /etc/apt/sources.list
 if [ "$?" != 0 ]; then
@@ -147,7 +144,9 @@ fi
 # FIXME: I got an error setting rights if this directory didn't exist.  Do I need to create it manually?
 mkdir /home/opsiproducts
 # FIXME: I got another error starting opsiconfd if /var/lib/opsi/depot didn't exist
-mkdir /var/lib/opsi/depot
+mkdir /opt/pcbin
+mkdir /opt/pcbin/install
+ln -s /var/lib/opsi/depot
 
 apt-get -y install mysql-server
 opsi-setup --configure-mysql
