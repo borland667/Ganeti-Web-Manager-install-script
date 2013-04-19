@@ -146,7 +146,7 @@ mkdir /home/opsiproducts
 # FIXME: I got another error starting opsiconfd if /var/lib/opsi/depot didn't exist
 mkdir /opt/pcbin
 mkdir /opt/pcbin/install
-ln -s /var/lib/opsi/depot
+ln -s /opt/pcbin /var/lib/opsi/depot
 
 apt-get -y install mysql-server
 opsi-setup --configure-mysql
