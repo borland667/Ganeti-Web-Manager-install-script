@@ -61,6 +61,9 @@ if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
 	exit 1
 fi
 
+# FIXME: This directory isn't automatically installed for me.
+mkdir /opt/pcbin
+
 # Add the Squeeze OPSI repo
 grep -q "http://download.opensuse.org/repositories/home:/uibmz:/opsi:/opsi40/Debian_6.0 ./" /etc/apt/sources.list
 if [ "$?" != 0 ]; then
@@ -109,10 +112,10 @@ update-alternatives --set java /usr/lib/jvm/java-7-openjdk/jre/bin/java
 echo ""
 echo "***NOTE***"
 echo "We must manually create the user and groups required for correct OPSI operation"
-echo "otherwise the OPSI debs incorrectly create them locally.  This"
-echo "won't work in our scenario (ie. with an LDAP-aware Samba)."
+echo "otherwise the OPSI debs incorrectly create them locally - this"
+echo "won't work in our scenario (ie. our Samba installation uses LDAP)."
 echo "The user we create is called pcpatch with a homedir /var/lib/opsi"
-echo "We also need to create two empty groups called opsiadmin and pcpatch."
+echo "We also need to create two groups called opsiadmin and pcpatch."
 echo "If you want FD user/s to be OPSI administrators add them to opsiadmin and"
 echo "pcpatch, and also make sure these users have Samba attributes enabled."
 echo "DO THIS NOW!!! then hit any key to continue..."
@@ -126,6 +129,9 @@ usermod -a -G shadow opsiconfd
 
 # This Argonaut package needs to be installed... 
 if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse argonaut-fuse-opsi argonaut-server-module-opsi; then
+  # There are errors configuring the following packages - an interdependency
+  # issue.  Things eventually work provided I separate the installation
+  # into two apt-get install statements :
   apt-get -y --allow-unauthenticated install opsi-depotserver-expert
   apt-get -y --allow-unauthenticated install opsi-linux-bootimage libproc-daemon-perl syslinux
   echo "Installed Argonaut and FD OPSI modules from repository..."
@@ -331,6 +337,8 @@ echo "Service of your Fusion Directory server."
 echo ""
 echo "Last of all, you must install and configure your OS software and apps"
 echo "onto the server.  This is documented in the OPSI manual."
+echo "Also: If you are using a browser on Debian, you'll need Java"
+echo "in your browser: apt-get install icedtea-7-plugin"
 # FIXME: Is the following required or is this all done through Fusion Directory now?
 echo "https://localhost:4447/configed"
 echo "***BUG*** you must also add the following line to /usr/sbin/argonaut-server"
