@@ -129,8 +129,9 @@ read my_dummy_value
 DEBIAN_PRIORITY="low" apt-get -y --allow-unauthenticated install slapd
 unset DEBIAN_PRIORITY
 # FIXME: Is unsetting of DEBCONF_PRIORITY required?
-
-if apt-get -y --allow-unauthenticated install apache2-mpm-prefork libapache2-mod-php5 php5-snmp php-mdb2 php-mdb2-driver-mysql ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin; then
+# NOTE: I've installed some extra plugins that aren't essential, ie:
+#       dashboard (board), addressbook and ldapmanager.
+if apt-get -y --allow-unauthenticated install apache2-mpm-prefork libapache2-mod-php5 php5-snmp php-mdb2 php-mdb2-driver-mysql ldap-utils fusiondirectory-schema fusiondirectory gnutls-bin fusiondirectory-plugin-board fusiondirectory-plugin-board-schema fusiondirectory-plugin-addressbook fusiondirectory-plugin-ldapmanager; then
 	echo "Installation of Fusion Directory and prerequisite packages successful..."
 else
 	echo "Installation of Fusion Directory and prerequisite packages failed.  Exiting..."
@@ -416,17 +417,9 @@ echo "
 	## for "loglevel"  Keep in mind - logging effects performance!
 	#loglevel 1024
 
-# I believe this command replaces the following lines.
+# This command installs the default schema
 fusiondirectory-insert-schema
-#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/samba.ldif
-#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/ldapns.ldif
-#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gosystem.ldif
-#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gofon.ldif
-#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/goto.ldif
-#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gosa-samba3.ldif
-#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/gofax.ldif
-#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/goserver.ldif
-#ldapadd -Y EXTERNAL -H ldapi:/// -f /etc/ldap/schema/fusiondirectory/goto-mime.ldif
+fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/board-fd-conf.schema
 
 # Configure indexes to make accessing LDAP more efficient
 # FIXME: Document what these indexes are for.
