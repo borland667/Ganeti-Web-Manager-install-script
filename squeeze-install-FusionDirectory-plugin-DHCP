@@ -30,14 +30,14 @@ echo "We temporarily need to patch and recompile the isc-dhcp-server-ldap packag
 echo "Be sure to have a deb-src repo installed."
 echo "Hit any key to continue (or Ctrl-C to quit)..."
 cd /usr/src
-apt-get install wget
+apt-get install -y wget dpkg-dev
 apt-get source isc-dhcp-server-ldap
 wget 'http://bugs.debian.org/cgi-bin/bugreport.cgi?msg=25;filename=isc-dhcp-server-ldap-4.2.4sid-fix-ldapcrypto-support.patch;att=1;bug=692808' -O 1.patch
 wget 'http://bugs.debian.org/cgi-bin/bugreport.cgi?msg=25;filename=isc-dhcp-server-ldap-4.2.4sid-fix-ldap-support.patch;att=2;bug=692808' -O 2.patch
 cd isc-dhcp-4.2.2.dfsg.1
 patch -p1 <../1.patch
 patch -p1 <../2.patch
-apt-get install groff autoconf automake pkg-config po-debconf libssl-dev libldap2-dev hardening-wrapper debhelper
+apt-get install -y groff autoconf automake pkg-config po-debconf libssl-dev libldap2-dev hardening-wrapper debhelper
 dpkg-buildpackage
 cd ..
 dpkg -i isc-dhcp-server-ldap_*.deb isc-dhcp-server_*.deb 
