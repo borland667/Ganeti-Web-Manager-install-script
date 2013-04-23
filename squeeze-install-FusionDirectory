@@ -55,9 +55,7 @@ if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
 fi
 
 #,------------------------------------------------------------------------------
-#| Choose a Fusion Directory repo.  Perhaps we can put an experimental repo
-#| in here in future - I've commented out some old repo bits related to GOsa
-#| that can be easily edited.
+#| Choose a Fusion Directory repo.
 #'------------------------------------------------------------------------------
 
 wget -O - http://repos.fusiondirectory.org/gpg/fusiondirectory_public.key | apt-key add -
