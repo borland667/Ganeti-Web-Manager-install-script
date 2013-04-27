@@ -8,8 +8,9 @@ if [ "$USER" != "root" ]; then
         exit 1
 fi
 
-# ...and check if we've installed GOsa via the squeeze-install-FusionDirectory script
-if [ ! -f /etc/gosa/gosa.conf ]; then
+# ...and check if we've installed Fusiondirectory via the
+# squeeze-install-FusionDirectory script
+if [ ! -f /etc/fusiondirectory/fusiondirectory.conf ]; then
   echo "Run the squeeze-install-FusionDirectory script before this one.  It must be"
   echo "installed and configured before we can continue..."
   exit 1
