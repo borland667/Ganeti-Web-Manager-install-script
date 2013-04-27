@@ -41,7 +41,9 @@ fi
 #        version.  Perhaps later we can install a 3.0 version that's more
 #        stable and up-to-date.
 aptitude update
-aptitude -y --allow-untrusted install squid fusiondirectory-plugin-connectivity fusiondirectory-plugin-squid libnet-ldap-perl libio-socket-ssl-perl sudo
+aptitude -y --allow-untrusted install squid fusiondirectory-plugin-connectivity fusiondirectory-plugin-squid fusiondirectory-plugin-squid-schema libnet-ldap-perl libio-socket-ssl-perl sudo
+
+fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/proxy-fd.schema
 
 # There is a free blacklist for Squid filtering hosted here :
 # http://squidguard.mesd.k12.or.us/blacklists.tgz .  Commercial ones can also

@@ -221,11 +221,12 @@ read dummy
 #apt-get install wget
 #wget -r -l1 -nd -nc -A '*.opsi' http://download.uib.de/opsi4.0/products/netboot
 ##wget -r -l1 -nd -nc -A '*.opsi' http://download.uib.de/opsi3.4/produkte/essential
-## More products can be downloaded from http://download.uib.de similarly
-#opsi-package-manager -i *.opsi
 
 # FIXME: This is part of the 4.0.3 instructions.  Does this work, or clash with above?
 opsi-product-updater -i -vv
+
+## More products can be downloaded from http://download.uib.de similarly
+opsi-package-manager -i /var/lib/opsi/repository/*.opsi
 
 # FIXME: We should disable the license server here, because otherwise it gives
 #        an error each time an OPSI client is visited in Fusion Directory.
