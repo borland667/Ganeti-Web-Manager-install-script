@@ -128,8 +128,9 @@ usermod -a -G shadow opsiconfd
 if apt-get -y --allow-unauthenticated install opsi-configed fusiondirectory-plugin-opsi fusiondirectory-plugin-opsi-schema argonaut-fuse argonaut-fuse-opsi argonaut-server-module-opsi; then
   # There are errors configuring the following packages - an interdependency
   # issue.  Things eventually work provided I separate the installation
-  # into two apt-get install statements :
-  apt-get -y --allow-unauthenticated install opsi-depotserver-expert
+  # into two apt-get install statements. WARNING:: opsi-linux-bootimage
+  # appearing time twice seems to be required.  Why?
+  apt-get -y --allow-unauthenticated install opsi-depotserver-expert opsi-linux-bootimage
   apt-get -y --allow-unauthenticated install opsi-linux-bootimage libproc-daemon-perl syslinux
   echo "Installed Argonaut and FD OPSI modules from repository..."
   fusiondirectory-insert-schema -i /etc/ldap/schema/fusiondirectory/opsi-fd.schema

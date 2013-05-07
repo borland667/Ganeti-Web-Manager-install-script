@@ -1,0 +1,231 @@
+#!/bin/bash
+# We must run this script as root
+if [ "$USER" != "root" ]; then
+        echo "Must be root to execute script..."
+        exit 1
+fi
+
+# Check for valid IP.  Warn if only configured to 127.0.x.x
+my_fqdn=`hostname -f`
+my_host_ip=`grep $my_fqdn /etc/hosts | awk '{ print $1 }'`
+echo ""
+echo "Your fully qualified hostname is "$my_fqdn
+echo "and your IP is "$my_host_ip
+if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
+	echo ""
+	echo "You should really make your hostname resolve to a valid network IP."
+	echo "This is required for many web apps and is generally a good idea."
+	echo "To do this:"
+	echo "1) edit your /etc/hosts file and make sure your hostname"
+	echo "   resolves to an IP other than 127.x.x.x"
+	echo "2) Your /etc/network/interfaces will need to match. eg. :"
+	echo "   iface eth0 inet static"
+	echo "     address 192.168.1.120"
+	echo "     netmask 255.255.255.0"
+	echo "     gateway 192.168.1.1"
+	echo "To make this take effect : killall dhclient;ifdown eth0;ifup eth0"
+	echo "'Ctrl-C' to exit or hit <enter> to continue..."
+	read my_dummy_value 
+fi
+
+apt-get install wget simplesamlphp build-essential python-dev libpq-dev libpng12-dev libjpeg8-dev apache2 libapache2-mod-wsgi python-virtualenv
+
+# Indices to maintain for this database
+index objectClass                       eq,pres
+index ou,cn,mail,surname,givenname      eq,pres,sub
+index uidNumber,gidNumber,loginShell    eq,pres
+index uid,memberUid                     eq,pres,sub
+index nisMapName,nisMapEntry            eq,pres,sub
+
+cd /etc/ldap/schema
+mkdir openmooc
+cd openmooc
+wget http://www.rediris.es/ldap/esquemas/iris.schema
+wget http://www.terena.org/activities/tf-emc2/docs/schac/schac-20061212-1.3.0.schema.txt
+mv schac-20061212-1.3.0.schema.txt schac.schema
+
+cat > eduperson.schema <<EOF
+#
+################################################################################
+#
+# dn: cn=schema
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.1
+    NAME 'eduPersonAffiliation'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY caseIgnoreMatch
+    SUBSTR caseIgnoreSubstringsMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
+ 
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.2
+    NAME 'eduPersonNickname'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY caseIgnoreMatch
+    SUBSTR caseIgnoreSubstringsMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
+ 
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.3
+    NAME 'eduPersonOrgDN'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY distinguishedNameMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.12'
+    SINGLE-VALUE )
+ 
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.4
+    NAME 'eduPersonOrgUnitDN'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY distinguishedNameMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.12' )
+ 
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.5
+    NAME 'eduPersonPrimaryAffiliation'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY caseIgnoreMatch
+    SUBSTR caseIgnoreSubstringsMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+    SINGLE-VALUE )
+ 
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.6
+    NAME 'eduPersonPrincipalName'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY caseIgnoreMatch
+    SUBSTR caseIgnoreSubstringsMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+    SINGLE-VALUE )
+ 
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.7
+    NAME 'eduPersonEntitlement'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY caseExactMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
+ 
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.8
+    NAME 'eduPersonPrimaryOrgUnitDN'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY distinguishedNameMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.12'
+    SINGLE-VALUE )
+ 
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.9
+    NAME 'eduPersonScopedAffiliation'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY caseIgnoreMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
+ 
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.10
+    NAME 'eduPersonTargetedID'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY caseIgnoreMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
+ 
+#
+################################################################################
+#
+attributeType ( 1.3.6.1.4.1.5923.1.1.1.11
+    NAME 'eduPersonAssurance'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    EQUALITY caseIgnoreMatch
+    SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
+ 
+#
+################################################################################
+#
+objectClass ( 1.3.6.1.4.1.5923.1.1.2
+    NAME 'eduPerson'
+    DESC 'eduPerson per Internet2 and EDUCAUSE'
+    AUXILIARY
+    MAY ( eduPersonAffiliation $ eduPersonNickname $ eduPersonOrgDN $
+          eduPersonOrgUnitDN $ eduPersonPrimaryAffiliation $
+          eduPersonPrincipalName $ eduPersonEntitlement $
+          eduPersonPrimaryOrgUnitDN $ eduPersonScopedAffiliation $
+          eduPersonTargetedID $ eduPersonAssurance ) )
+ 
+ 
+################################################################################
+EOF
+
+fusiondirectory-insert-schema -i eduperson.schema iris.schema schac.schema
+LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | sed -n 's@^olcSuffix:[[:space:]]*@@p'`
+
+sed -i "s@enable.saml20-idp.*@enable.saml20-idp\'             => true,@" /etc/simplesamlphp/config.php
+ln -s /etc/apache2/conf-available/simplesamlphp.conf /etc/apache2/conf.d/simplesamlphp.conf
+sed -i "s@'example-ldap'@'ldap'@" /etc/simplesamlphp/authsources.php
+sed -i "s@'ldap.example.org'@'"`hostname --fqdn`"'@" /etc/simplesamlphp/authsources.php
+sed -i "s@'dnpattern' => 'uid=%username%,ou=people,dc=example,dc=org',@'dnpattern' => 'mail=%username%,ou=People,"$LDAP_BASE_DN"@" /etc/simplesamlphp/authsources.php
+sed -i "s@'search.base' => 'ou=people,dc=example,dc=org',@'search.base' => 'ou=People,"$LDAP_BASE_DN"',@" /etc/simplesamlphp/authsources.php
+
+cat > /etc/simplesamlphp/metadata/saml20-idp-hosted.php <<EOF
+<?php
+
+\$metadata['https://`hostname --fqdn`/simplesaml/saml2/idp/metadata.php'] = array(
+
+  'host' => '`hostname --fqdn`',
+
+  'OrganizationName' => array(
+      'en' => 'OpenMOOC',
+  ),
+  'OrganizationURL' => array(
+      'en' => 'http://`hostname --fqdn`',
+  ),
+
+  'certificate' => 'server.crt',
+  'privatekey' => 'server.pem',
+
+   // The authentication source for this IdP. Must be one
+   // from config/authsources.php.
+  'auth' => 'ldap',
+
+  // Logout requests and logout responses sent from this IdP should be signed
+  'redirect.sign' => TRUE,
+  // All communications are encrypted
+  'assertion.encryption' => TRUE,
+
+  // This filter eliminate the userPassword from the metadata that will be sent to the diferents components
+  'authproc' => array(
+          100 => array(
+              'class' => 'core:PHP',
+              'code' => '
+                      if (isset($attributes["userPassword"])) {
+                              unset($attributes["userPassword"]);
+                      }
+              ',
+          ),
+  ),
+);
+
+?>
+EOF
+
+virtualenv /var/www/moocng --no-site-packages
+source /var/www/moocng/bin/activate
+
+#NOTE: Magic Quotes are no longer part of PHP v5.4, so we don't need to switch them off
