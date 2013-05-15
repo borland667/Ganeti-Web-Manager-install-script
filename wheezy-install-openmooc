@@ -179,9 +179,9 @@ LDAP_BASE_DN=`ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config olcSuffix | sed -
 sed -i "s@enable.saml20-idp.*@enable.saml20-idp\'             => true,@" /etc/simplesamlphp/config.php
 ln -s /etc/apache2/conf-available/simplesamlphp.conf /etc/apache2/conf.d/simplesamlphp.conf
 sed -i "s@'example-ldap'@'ldap'@" /etc/simplesamlphp/authsources.php
-sed -i "s@'ldap.example.org'@'"`hostname --fqdn`"'@" /etc/simplesamlphp/authsources.php
-sed -i "s@'dnpattern' => 'uid=%username%,ou=people,dc=example,dc=org',@'dnpattern' => 'mail=%username%,ou=People,"$LDAP_BASE_DN"@" /etc/simplesamlphp/authsources.php
-sed -i "s@'search.base' => 'ou=people,dc=example,dc=org',@'search.base' => 'ou=People,"$LDAP_BASE_DN"',@" /etc/simplesamlphp/authsources.php
+sed -i "s@'ldap.example.org'@'"ldaps://`hostname --fqdn`"'@" /etc/simplesamlphp/authsources.php
+sed -i "s@'dnpattern' => 'uid=%username%,ou=People,dc=example,dc=org',@'dnpattern' => 'mail=%username%,ou=people,"$LDAP_BASE_DN"@" /etc/simplesamlphp/authsources.php
+sed -i "s@'search.base' => 'ou=People,dc=example,dc=org',@'search.base' => 'ou=people,"$LDAP_BASE_DN"',@" /etc/simplesamlphp/authsources.php
 
 cat > /etc/simplesamlphp/metadata/saml20-idp-hosted.php <<EOF
 <?php
@@ -225,7 +225,15 @@ cat > /etc/simplesamlphp/metadata/saml20-idp-hosted.php <<EOF
 ?>
 EOF
 
-virtualenv /var/www/moocng --no-site-packages
+# cp /usr/share/simplesamlphp/modules/sanitycheck/config-templates/config-sanitycheck.php /usr/share/simplesamlphp/config/config-sanitycheck.php
+## Sanitycheck requires enabling cron module.
+
+# FIXME: not sure if this is required.  Log file didn't seem to be created
+touch /var/log/simplesamlphp/simplesamlphp.log
+chmod 660 /var/log/simplesamlphp/simplesamlphp.log
+
+
+virtualenv /var/www/moocng
 source /var/www/moocng/bin/activate
 
 #NOTE: Magic Quotes are no longer part of PHP v5.4, so we don't need to switch them off
