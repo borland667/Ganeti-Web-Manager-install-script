@@ -268,11 +268,11 @@ cat > /usr/share/simplesamlphp/config/config-metarefresh.php <<EOF
 EOF
 
 cd /usr/share/simplesamlphp
-touch modules/cron/enable
-cp modules/cron/config-templates/modules_cron.php config/
+touch /usr/share/simplesamlphp/modules/cron/enable
+cp /usr/share/simplesamlphp/modules/cron/config-templates/module_cron.php /usr/share/simplesamlphp/config/
 RANDOM_PASSWD=`openssl rand -base64 15|tr -dc _A-Z-a-z-0-9`
-sed -i "s@'key'.*@'key' => '$RANDOM_PASSWD',@" config/module_cron.php
-touch modules/metarefresh/enable
+sed -i "s@'key'.*@'key' => '$RANDOM_PASSWD',@" /usr/share/simplesamlphp/config/module_cron.php
+touch /usr/share/simplesamlphp/modules/metarefresh/enable
 
 echo '01 * * * * root curl --silent "https://'`hostname --fqdn`'/simplesaml/module.php/cron/cron.php?key='$RANDOM_PASSWD'&tag=metarefresh" > /dev/null 2>&1' > /etc/cron.d/metarefresh
 
@@ -437,7 +437,7 @@ cat > /usr/share/simplesamlphp/config/module_userregistration.php << EOF
 EOF
 touch /usr/share/simplesamlphp/modules/userregistration/enable
 
-cat > /usr/share/simpesamlphp/config/module_sspopenmooc.php << EOF
+cat > /usr/share/simplesamlphp/config/module_sspopenmooc.php << EOF
 <?php
 
 // Domain of our MoocNG component
@@ -473,9 +473,10 @@ cat > /usr/share/simpesamlphp/config/module_sspopenmooc.php << EOF
 ?>
 EOF
 
-sed "s@'theme.use'[ \t]*\=> 'default',@'theme.use'		\=> 'sspopenmooc:openmooc'@" /etc/simplesamlphp/config.php
+sed -i "s@'theme.use'[ \t]*\=> 'default',@'theme.use'		\=> 'sspopenmooc:openmooc'@" /etc/simplesamlphp/config.php
 
-patch -p0 < /usr/share/simplesamlphp/modules/sspopenmooc/session_logged_patch.diff
+cd /usr/share/simplesamlphp
+patch -p0 < modules/sspopenmooc/session_logged_patch.diff
 sed -i 's@openmooc.org@'`hostname --domain`'@' /usr/share/simplesamlphp/lib/SimpleSAML/XHTML/Template.php
 
 # cp /usr/share/simplesamlphp/modules/sanitycheck/config-templates/config-sanitycheck.php /usr/share/simplesamlphp/config/config-sanitycheck.php
