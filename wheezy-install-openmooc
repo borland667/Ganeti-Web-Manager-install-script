@@ -28,6 +28,7 @@ if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
 	read my_dummy_value 
 fi
 
+apt-get update
 apt-get -y install wget simplesamlphp build-essential python-dev libpq-dev libpng12-dev libjpeg8-dev apache2 libapache2-mod-wsgi python-virtualenv git
 
 ## Indices to maintain for this database
@@ -287,6 +288,13 @@ cd /usr/share/simplesamlphp/modules
 git clone https://github.com/OpenMOOC/userregistration.git
 git clone https://github.com/OpenMOOC/sspopenmooc.git
 
+# We raid Fusion Directory's config file, and examine our network config for
+# values we need to configure Argonaut :
+LDAP_ADMIN_DN=`grep 'adminDn="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{ print $2 }' #| awk -F',' '{ print $1 }'`
+echo "LDAP admin dn extracted from /etc/fusiondirectory/fusiondirectory.conf"
+LDAP_ADMIN_PW=`grep 'adminPassword="' /etc/fusiondirectory/fusiondirectory.conf | awk -F'"' '{print $2 }'`
+echo "LDAP admin password extracted from /etc/fusiondirectory/fusiondirectory.conf"
+
 cat > /usr/share/simplesamlphp/config/module_userregistration.php << EOF
 <?php
 
@@ -313,17 +321,17 @@ cat > /usr/share/simplesamlphp/config/module_userregistration.php << EOF
       // This is configured in authsources.php
       // FIXME: The name of this arrays shoud be the same as storage.backend value
       'ldap' => array(
-              'admin.dn' => 'cn=admin,dc=example,dc=com',
-              'admin.pw' => 'secret_ldap_adminpassword',   // Set the correct ldap admin password
+              'admin.dn' => '$LDAP_ADMIN_DN',
+              'admin.pw' => '$LDAP_ADMIN_PW',   // Set the correct ldap admin password
 
               // Storage User Id indicate which of the attributes
               // that is the key in the storage
               // This relates to the attributs mapping
-              'user.id.param' => 'mail',
+              'user.id.param' => 'uid',
 
               // Password encryption
               // plain, md5, sha1
-              'psw.encrypt' => 'sha1',
+              'psw.encrypt' => 'md5',
 
               // Field user to save the registration email of the user
               'user.register.email.param' => 'mail',
@@ -473,7 +481,7 @@ cat > /usr/share/simplesamlphp/config/module_sspopenmooc.php << EOF
 ?>
 EOF
 
-sed -i "s@'theme.use'[ \t]*\=> 'default',@'theme.use'		\=> 'sspopenmooc:openmooc'@" /etc/simplesamlphp/config.php
+sed -i "s@'theme.use'[ \t]*\=> 'default',@'theme.use'		\=> 'sspopenmooc:openmooc',@" /etc/simplesamlphp/config.php
 
 cd /usr/share/simplesamlphp
 patch -p0 < modules/sspopenmooc/session_logged_patch.diff
