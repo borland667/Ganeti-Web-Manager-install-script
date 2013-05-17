@@ -661,6 +661,8 @@ echo "Port - 4190"
 echo "Option - tls"
 echo "In your Postfix service:"
 echo "FQDN (pretty obvious).  Not sure Domains are even required."
+echo "!!!IMPORTANT!!! - In FD, Addons/Configuration and go to email settings."
+echo "Pick UID."
 ## Old format configuration details (historical, from GOsa)
 #echo "Port: "
 #echo "Server identifier - "`hostname --fqdn`
