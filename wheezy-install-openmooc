@@ -449,10 +449,10 @@ cat > /usr/share/simplesamlphp/config/module_sspopenmooc.php << EOF
 <?php
 
 // Domain of our MoocNG component
-\$mooc_domain = 'demo.example.com';
+\$mooc_domain = '`hostname --fqdn`';
 
 // Domain of the IdP
-\$idp_domain = 'idp.example.com';
+\$idp_domain = '`hostname --fqdn`';
 
 \$config = array(
 
