@@ -495,7 +495,9 @@ touch /var/log/simplesamlphp/simplesamlphp.log
 chmod 660 /var/log/simplesamlphp/simplesamlphp.log
 
 
-virtualenv /var/www/moocng --no-site-packages
+virtualenv /var/www/moocng
+# Putting "--no-site-packages" after the above line just gives a deprication warning
+
 source /var/www/moocng/bin/activate
 cd /var/www/moocng
 git clone https://github.com/OpenMOOC/django-tastypie.git
@@ -512,11 +514,11 @@ python setup.py develop
 #       Running setup.py twice gets past it(???).  This could be bad too.
 python setup.py develop
 # Required???
-#easy_install moocng
+easy_install moocng
 
 PG_PASSWD=`openssl rand -base64 15|tr -dc _A-Z-a-z-0-9`
 sudo -u postgres createuser moocng --no-createrole --no-createdb --no-superuser
-sudo -u postgres sh -c "psql -d template1 -c 'ALTER USER moocng WITH PASSWORD '\'$PG_PASSWORD\'';'"
+sudo -u postgres psql -c 'ALTER USER moocng WITH PASSWORD '\'$PG_PASSWORD\'';'
 sudo -u postgres createdb -E UTF8 --owner=moocng moocng
 
 sed -i 's@^local.*all.*all.*peer.*$@local    moocng      moocng                         md5\
@@ -525,8 +527,8 @@ sed -i 's@^local.*all.*all.*peer.*$@local    moocng      moocng                 
 # DEBUG: To check the database is working you may want to connect to the database ie:
 # psql -U moocng -W moocng
 
-cat > /var/www/moocng/lib/python2.7/site-packages/moocng-0.0-py2.7.egg/local_settings.py <<-EOF
- DATABASES = {
+cat > /var/www/moocng/lib/python2.7/site-packages/moocng-0.0-py2.7.egg/moocng/local_settings.py <<-EOF
+DATABASES = {
      'default': {
          'ENGINE': 'django.db.backends.postgresql_psycopg2',
          'NAME': 'moocng',
@@ -535,12 +537,14 @@ cat > /var/www/moocng/lib/python2.7/site-packages/moocng-0.0-py2.7.egg/local_set
          'HOST': '',
          'PORT': '',
      }
- }
+}
 EOF
 
 cd /var/www/moocng
 
 django-admin.py syncdb --settings=moocng.settings --migrate
+#FIXME: Gets through a few steps, then fails at:
+#       Error in migration: courses:0010_optimize_activity
 
 rabbitmqctl add_user moocng moocngpassword
 rabbitmqctl add_vhost moocng
