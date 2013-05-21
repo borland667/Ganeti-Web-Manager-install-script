@@ -29,7 +29,7 @@ if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
 fi
 
 apt-get update
-apt-get -y install wget simplesamlphp build-essential python-dev libpq-dev libpng12-dev libjpeg8-dev apache2 libapache2-mod-wsgi python-virtualenv git ffmpeg postgresql postgresql-client mongodb
+apt-get -y install wget simplesamlphp build-essential python-dev libpq-dev libpng12-dev libjpeg8-dev apache2 libapache2-mod-wsgi python-virtualenv git ffmpeg postgresql postgresql-client mongodb rabbitmq-server
 
 ## Indices to maintain for this database
 #index objectClass                       eq,pres
@@ -500,26 +500,53 @@ source /var/www/moocng/bin/activate
 cd /var/www/moocng
 git clone https://github.com/OpenMOOC/django-tastypie.git
 cd django-tastypie
-python setup.py develop
+python django-tastypie/setup.py develop
 cd /var/www/moocng
 git clone https://github.com/OpenMOOC/moocng.git
-#django-admin-sortable==1.3.8 to 1.4
-sed -i "s@django-admin-sortable==1.3.8@django-admin-sortable==1.4@"/var/www/moocng/moocng/setup.py
-python setup.py develop
+#FIXME: django-admin-sortable==1.3.8 to 1.4...  Doesn't work otherwise.  Is this bad?
+sed -i "s@django-admin-sortable==1.3.8@django-admin-sortable==1.4@" /var/www/moocng/moocng/setup.py
+python moocng/setup.py develop
+#FIXME: There's a "maximum recursion depth error" here...
+#       running again gets past it(???).  This could be bad too.
+python moocng/setup.py develop
 # Required???
-#easy_install moocng
+easy_install moocng
 
-sudo -u postgres createuser moocng --no-createrole --no-createdb --no-superuser -P
+PG_PASSWD=`openssl rand -base64 15|tr -dc _A-Z-a-z-0-9`
+sudo -u postgres createuser moocng --no-createrole --no-createdb --no-superuser
+sudo -u postgres sh -c "psql -d template1 -c 'ALTER USER moocng WITH PASSWORD '\'$PG_PASSWORD\'';'"
 sudo -u postgres createdb -E UTF8 --owner=moocng moocng
 
-sed -i 's@^host.*all.*all.*127.0.0.1/32.*$@&\
-local    moocng      moocng                         md5@' /etc/postgresql/9.1/main/pg_hba.conf
+sed -i 's@^local.*all.*all.*peer.*$@local    moocng      moocng                         md5\
+&@' /etc/postgresql/9.1/main/pg_hba.conf
 /etc/init.d/postgresql restart
 # DEBUG: To check the database is working you may want to connect to the database ie:
 # psql -U moocng -W moocng
 
+cat > /var/www/moocng/lib/python2.7/site-packages/moocng-0.0-py2.7.egg/local_settings.py <<-EOF
+ DATABASES = {
+     'default': {
+         'ENGINE': 'django.db.backends.postgresql_psycopg2',
+         'NAME': 'moocng',
+         'USER': 'moocng',
+         'PASSWORD': '$PG_PASSWD',
+         'HOST': '',
+         'PORT': '',
+     }
+ }
+EOF
 
+django-admin.py syncdb --settings=moocng.settings --migrate
 
+rabbitmqctl add_user moocng moocngpassword
+rabbitmqctl add_vhost moocng
+rabbitmqctl set_permissions -p moocng moocng ".*" ".*" ".*"
+
+cp /var/www/moocng/moocng/celeryd /etc/init.d/
+#FIXME: /etc/init.d/celeryd: 24: .: Can't open /etc/init.d/functions
+chmod +x /etc/init.d/celeryd
+
+django-admin.py collectstatic --settings=moocng.settings
 
 echo "https://fusion.strategicit.homelinux.net/simplesamlphp"
 #NOTE: Magic Quotes are no longer part of PHP v5.4, so we don't need to switch them off
