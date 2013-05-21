@@ -499,26 +499,39 @@ virtualenv /var/www/moocng
 # Putting "--no-site-packages" after the above line just gives a deprication warning
 
 source /var/www/moocng/bin/activate
+
+#FIXME: I had to put the tastypie installation before moocng install.
 cd /var/www/moocng
 git clone https://github.com/OpenMOOC/django-tastypie.git
 cd django-tastypie
 python setup.py develop
+
 cd /var/www/moocng
 git clone https://github.com/OpenMOOC/moocng.git
 #FIXME: django-admin-sortable==1.3.8 to 1.4...  The older version isn't available.
 #       Is this bad?
 sed -i "s@django-admin-sortable==1.3.8@django-admin-sortable==1.4@" /var/www/moocng/moocng/setup.py
+sed -i "s@django-mathjax==0.0.1@django-mathjax==0.0.2@" /var/www/moocng/moocng/setup.py
 cd moocng
-python setup.py develop
-#FIXME: There's a "maximum recursion depth error" here...
-#       Running setup.py twice gets past it(???).  This could be bad too.
-python setup.py develop
-# Required???
-easy_install moocng
+#FIXME: There's a "maximum recursion depth error" here... during install of mathjax.
+#       I've installed mathjax manually with pip to get around this.
+#       Running setup.py twice also gets past it(???).
+pip install django-mathjax
 
+#FIXME: There are two ways to setup moocng...  #1) and #2).
+#       Only one will be uncommented at a time.  They both don't work, and
+#       both give slightly different results.
+
+#1)
+python setup.py sdist
+easy_install /var/www/moocng/moocng/dist/moocng-0.0.tar.gz
+
+#2)
+#python setup.py develop
+ 
 PG_PASSWD=`openssl rand -base64 15|tr -dc _A-Z-a-z-0-9`
 sudo -u postgres createuser moocng --no-createrole --no-createdb --no-superuser
-sudo -u postgres psql -c 'ALTER USER moocng WITH PASSWORD '\'$PG_PASSWORD\'';'
+sudo -u postgres psql -c "ALTER USER moocng WITH PASSWORD '"$PG_PASSWD"'"
 sudo -u postgres createdb -E UTF8 --owner=moocng moocng
 
 sed -i 's@^local.*all.*all.*peer.*$@local    moocng      moocng                         md5\
@@ -541,6 +554,7 @@ DATABASES = {
 EOF
 
 cd /var/www/moocng
+source /var/www/moocng/bin/activate
 
 django-admin.py syncdb --settings=moocng.settings --migrate
 #FIXME: Gets through a few steps, then fails at:
