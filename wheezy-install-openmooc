@@ -572,5 +572,7 @@ chmod +x /etc/init.d/celeryd
 source /var/www/moocng/bin/activate
 django-admin.py collectstatic --settings=moocng.settings
 
+/etc/init.d/postgresql restart
+/etc/init.d/apache2 restart
 echo "https://fusion.strategicit.homelinux.net/simplesamlphp"
 #NOTE: Magic Quotes are no longer part of PHP v5.4, so we don't need to switch them off
