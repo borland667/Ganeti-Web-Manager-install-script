@@ -503,11 +503,12 @@ cd django-tastypie
 python django-tastypie/setup.py develop
 cd /var/www/moocng
 git clone https://github.com/OpenMOOC/moocng.git
-#FIXME: django-admin-sortable==1.3.8 to 1.4...  Doesn't work otherwise.  Is this bad?
+#FIXME: django-admin-sortable==1.3.8 to 1.4...  The older version isn't available.
+#       Is this bad?
 sed -i "s@django-admin-sortable==1.3.8@django-admin-sortable==1.4@" /var/www/moocng/moocng/setup.py
 python moocng/setup.py develop
 #FIXME: There's a "maximum recursion depth error" here...
-#       running again gets past it(???).  This could be bad too.
+#       Running setup.py twice gets past it(???).  This could be bad too.
 python moocng/setup.py develop
 # Required???
 easy_install moocng
@@ -543,7 +544,8 @@ rabbitmqctl add_vhost moocng
 rabbitmqctl set_permissions -p moocng moocng ".*" ".*" ".*"
 
 cp /var/www/moocng/moocng/celeryd /etc/init.d/
-#FIXME: /etc/init.d/celeryd: 24: .: Can't open /etc/init.d/functions
+#FIXME: The init.d script doesn't seem to work.  The error:
+#       /etc/init.d/celeryd: 24: .: Can't open /etc/init.d/functions
 chmod +x /etc/init.d/celeryd
 
 django-admin.py collectstatic --settings=moocng.settings
