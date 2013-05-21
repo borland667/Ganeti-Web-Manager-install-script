@@ -29,7 +29,7 @@ if [ "$my_host_ip" = "127.0.1.1" ] || [ "$my_host_ip" = "127.0.0.1" ]; then
 fi
 
 apt-get update
-apt-get -y install wget simplesamlphp build-essential python-dev libpq-dev libpng12-dev libjpeg8-dev apache2 libapache2-mod-wsgi python-virtualenv git
+apt-get -y install wget simplesamlphp build-essential python-dev libpq-dev libpng12-dev libjpeg8-dev apache2 libapache2-mod-wsgi python-virtualenv git ffmpeg postgresql postgresql-client mongodb
 
 ## Indices to maintain for this database
 #index objectClass                       eq,pres
@@ -497,6 +497,28 @@ chmod 660 /var/log/simplesamlphp/simplesamlphp.log
 
 virtualenv /var/www/moocng
 source /var/www/moocng/bin/activate
+cd /var/www/moocng
+git clone https://github.com/OpenMOOC/django-tastypie.git
+cd django-tastypie
+python setup.py develop
+cd /var/www/moocng
+git clone https://github.com/OpenMOOC/moocng.git
+#django-admin-sortable==1.3.8 to 1.4
+python setup.py develop
+# Required???
+#easy_install moocng
+
+sudo -u postgres createuser moocng --no-createrole --no-createdb --no-superuser -P
+sudo -u postgres createdb -E UTF8 --owner=moocng moocng
+
+sed -i 's@^host.*all.*all.*127.0.0.1/32.*$@&\
+local    moocng      moocng                         md5@' /etc/postgresql/9.1/main/pg_hba.conf
+/etc/init.d/postgresql restart
+# DEBUG: To check the database is working you may want to connect to the database ie:
+# psql -U moocng -W moocng
+
+
+
 
 echo "https://fusion.strategicit.homelinux.net/simplesamlphp"
 #NOTE: Magic Quotes are no longer part of PHP v5.4, so we don't need to switch them off

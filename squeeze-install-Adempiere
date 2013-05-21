@@ -57,7 +57,7 @@ elif [ "$NETWORK_CONFIG" = "3" ]; then    NETWORK_CONFIG="*"
 fi
 
 sed -i 's@^host.*all.*all.*127.0.0.1/32.*$@&\
-host    all         all         '$NETWORK_CONFIG'	md5@' /etc/postgresql/8.4/main/pg_hba.conf
+host    all         all         '$NETWORK_CONFIG'	md5@' /etc/postgresql/9.1/main/pg_hba.conf
 
 sed -i "s@#listen_addresses = 'localhost'@listen_addresses = '*'@" /etc/postgresql/8.4/main/postgresql.conf
 
