@@ -501,6 +501,7 @@ virtualenv /var/www/moocng
 source /var/www/moocng/bin/activate
 
 #FIXME: I had to put the tastypie installation before moocng install.
+#       I THINK this is correct...  although it's out of order to the docs.
 cd /var/www/moocng
 git clone https://github.com/OpenMOOC/django-tastypie.git
 cd django-tastypie
@@ -556,9 +557,15 @@ EOF
 cd /var/www/moocng
 source /var/www/moocng/bin/activate
 
-django-admin.py syncdb --settings=moocng.settings --migrate
-#FIXME: Gets through a few steps, then fails at:
+#django-admin.py syncdb --settings=moocng.settings --migrate
+#FIXME: The previous line gets through a few steps, then fails at:
 #       Error in migration: courses:0010_optimize_activity
+#       The next three lines hopefully fixes this.  Remove this note
+#       if/when this is proven.
+
+python manage.py migrate moocng 0009
+python manage.py migrate moocng --fake 0011
+python manage.py migrate moocng
 
 rabbitmqctl add_user moocng moocngpassword
 rabbitmqctl add_vhost moocng
