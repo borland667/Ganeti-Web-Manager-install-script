@@ -1,5 +1,5 @@
   These files document how to install Fusion Directory, modules and
-supporting software on a SINGLE Debian Squeeze server.  They
+supporting software on a SINGLE Debian Wheezy server.  They
 are valid shell scripts, but they're experimental so don't rely on them 
 to work as intended.
 
@@ -17,7 +17,7 @@ IRC client you could use a web client eg. : http://webchat.freenode.net/
 My email address is at the end of this file if you prefer.
 
   These scripts/docs need to be run in the correct order.
-squeeze-install-FusionDirectory will need to run first.  The others should
+wheezy-install-FusionDirectory will need to run first.  The others should
 exit and give useful information if a dependency hasn't been installed.
 
   The latest version of these scripts can be viewed here :
