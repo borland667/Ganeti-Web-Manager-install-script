@@ -1,0 +1,7 @@
+for line in "`ls squeeze-*`"; do 
+     wheezyline=`echo $line | sed 's@squeeze@wheezy@'`
+     echo $wheezyline
+     if [ "$line" != "$wheezyline" ]; then
+        git mv $line $wheezyline
+     fi
+done
