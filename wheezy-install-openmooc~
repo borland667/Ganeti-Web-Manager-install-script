@@ -568,6 +568,7 @@ ASKBOT_URL_TEMPLATE = 'https://questions.example.com/%s/questions/'
 
 EOF
 
+cd /var/www/moocng
 source /var/www/moocng/bin/activate
 
 #django-admin.py syncdb --settings=moocng.settings --migrate
@@ -575,7 +576,7 @@ source /var/www/moocng/bin/activate
 #       Error in migration: courses:0010_optimize_activity
 #       The next three lines hopefully fixes this.  Remove this note
 #       if/when this is proven.
-cd /var/www/moocng/moocng
+
 python manage.py migrate moocng 0009
 python manage.py migrate moocng --fake 0011
 python manage.py migrate moocng
