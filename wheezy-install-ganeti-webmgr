@@ -113,7 +113,7 @@ cat >> /var/lib/ganeti_webmgr/django.wsgi <<-EOF
 	
 	# add project to path
 	if path not in sys.path:
-	sys.path.append(path)
+	   sys.path.append(path)
 	
 	# configure django environment
 	os.environ['DJANGO_SETTINGS_MODULE'] = 'settings'
